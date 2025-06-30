@@ -1,0 +1,487 @@
+[
+    {
+        "name": "get_val",
+        "parameters": ["input"],
+        "description": "Returns the current value of a button or axis"
+    },
+    {
+        "name": "get_lval",
+        "parameters": ["input"],
+        "description": "Returns the last value of a button or axis"
+    },
+    {
+        "name": "get_ptime",
+        "parameters": ["input"],
+        "description": "Returns how long a button has been pressed (in milliseconds)"
+    },
+    {
+        "name": "get_controller",
+        "parameters": [],
+        "description": "Returns the controller type identifier"
+    },
+    {
+        "name": "get_battery",
+        "parameters": [],
+        "description": "Returns the battery level of the controller"
+    },
+    {
+        "name": "event_press",
+        "parameters": ["input"],
+        "description": "Returns TRUE if the button was just pressed"
+    },
+    {
+        "name": "event_release",
+        "parameters": ["input"],
+        "description": "Returns TRUE if the button was just released"
+    },
+    {
+        "name": "get_ival",
+        "parameters": ["input"],
+        "description": "Returns the current unmodified (input) value of a button or axis"
+    },
+    {
+        "name": "get_brtime",
+        "parameters": ["input"],
+        "description": "Returns how long a button has been released (in milliseconds)"
+    },
+    {
+        "name": "swap",
+        "parameters": ["input1", "input2"],
+        "description": "Swaps the values of two inputs"
+    },
+    {
+        "name": "block",
+        "parameters": ["input", "time"],
+        "description": "Blocks an input for a specified time"
+    },
+    {
+        "name": "sensitivity",
+        "parameters": ["stick", "mid-point", "sensitivity"],
+        "description": "Adjusts stick sensitivity with optional maximum value"
+    },
+    {
+        "name": "deadzone",
+        "parameters": ["axis1", "axis2" , "shape", "radius"],
+        "description": "Sets deadzone for 2 axes"
+    },
+    {
+        "name": "stickize",
+        "parameters": ["axis1", "axis2", "radius"],
+        "description": "Converts button input to analog stick movement"
+    },
+    {
+        "name": "ps4_touchpad",
+        "parameters": [],
+        "description": "Returns TRUE if touchpad is being touched"
+    },
+    {
+        "name": "ps4_set_touchpad",
+        "parameters": ["finger", "x", "y", "active"],
+        "description": "Sets PS4 touchpad finger position and state"
+    },
+    {
+        "name": "turn_off",
+        "parameters": [],
+        "description": "Turns off the controller"
+    },
+    {
+        "name": "wii_offscreen",
+        "parameters": [],
+        "description": "Sets Wii remote pointer offscreen"
+    },
+    {
+        "name": "get_adt",
+        "parameters": ["trigger", "type"],
+        "description": "Gets PS5 adaptive trigger setting"
+    },
+    {
+        "name": "set_adt",
+        "parameters": ["trigger", "type", "value"],
+        "description": "Sets PS5 adaptive trigger resistance type and value"
+    },
+    {
+        "name": "adt_off",
+        "parameters": [],
+        "description": "Turns off PS5 adaptive triggers for both L2 and R2"
+    },
+    {
+        "name": "adt_cmp",
+        "parameters": ["trigger"],
+        "description": "Compares PS5 adaptive trigger state"
+    },
+    {
+        "name": "addr",
+        "parameters": ["variable"],
+        "description": "Returns the memory address of a variable"
+    },
+    {
+        "name": "get_rumble",
+        "parameters": ["motor"],
+        "description": "Gets rumble motor intensity"
+    },
+    {
+        "name": "set_rumble",
+        "parameters": ["motor", "intensity"],
+        "description": "Sets rumble motor intensity (0-100)"
+    },
+    {
+        "name": "block_rumble",
+        "parameters": ["motor"],
+        "description": "Blocks rumble for specified motor"
+    },
+    {
+        "name": "reset_rumble",
+        "parameters": [],
+        "description": "Resets all rumble motors to off"
+    },
+    {
+        "name": "set_led",
+        "parameters": ["led", "state"],
+        "description": "Sets LED state (on/off)"
+    },
+    {
+        "name": "get_led",
+        "parameters": ["led"],
+        "description": "Gets current LED state"
+    },
+    {
+        "name": "set_ledx",
+        "parameters": ["led", "amount"],
+        "description": "Sets a specific LED to blink a certain amount of times"
+    },
+    {
+        "name": "get_ledx",
+        "parameters": [],
+        "description": "Check if the LEDs are blinking"
+    },
+    {
+        "name": "reset_leds",
+        "parameters": [],
+        "description": "Resets all LEDs to default state"
+    },
+    {
+        "name": "get_ps4_lbar",
+        "parameters": [],
+        "description": "Gets PS4 lightbar color"
+    },
+    {
+        "name": "set_ps4_lbar",
+        "parameters": ["color"],
+        "description": "Sets PS4 lightbar to a specific color (PS4_GREEN, PS4_RED, PS4_BLUE)"
+    },
+    {
+        "name": "get_keyboard",
+        "parameters": ["key"],
+        "description": "Gets keyboard key state"
+    },
+    {
+        "name": "get_modifiers",
+        "parameters": [],
+        "description": "Gets keyboard modifier keys state"
+    },
+    {
+        "name": "get_rtime",
+        "parameters": [],
+        "description": "Gets elapsed time (by VM Cycle)"
+    },
+    {
+        "name": "get_slot",
+        "parameters": [],
+        "description": "Gets current memory slot number"
+    },
+    {
+        "name": "load_slot",
+        "parameters": ["slot"],
+        "description": "Loads memory slot configuration"
+    },
+    {
+        "name": "get_ctrlbutton",
+        "parameters": [],
+        "description": "Gets the current control button"
+    },
+    {
+        "name": "vm_tctrl",
+        "parameters": ["value"],
+        "description": "Controls the virtual machine's refresh rate. -2 is recommended for most cases."
+    },
+    {
+        "name": "set_polar",
+        "parameters": ["stick", "angle", "radius"],
+        "description": "Sets stick position using polar coordinates"
+    },
+    {
+        "name": "set_rgb",
+        "parameters": ["red", "green", "blue"],
+        "description": "Sets RGB color values (0-255)"
+    },
+    {
+        "name": "set_hsb",
+        "parameters": ["hue", "saturation", "brightness"],
+        "description": "Sets color using HSB values"
+    },
+    {
+        "name": "clamp",
+        "parameters": ["value", "min", "max"],
+        "description": "Constrains value between min and max bounds"
+    },
+    {
+        "name": "get_polar",
+        "parameters": ["stick", "type"],
+        "description": "Gets stick polar coordinate (radius or angle)"
+    },
+    {
+        "name": "get_ipolar",
+        "parameters": ["stick", "type"],
+        "description": "Gets unmodified (input) stick polar value"
+    },
+    {
+        "name": "remap",
+        "parameters": ["from", "to"],
+        "description": "Remaps input button to output button"
+    },
+    {
+        "name": "unmap",
+        "parameters": ["button"],
+        "description": "Removes button remapping"
+    },
+    {
+        "name": "combo_run",
+        "parameters": ["combo"],
+        "description": "Starts executing a combo"
+    },
+    {
+        "name": "combo_running",
+        "parameters": ["combo"],
+        "description": "Returns TRUE if combo is currently running"
+    },
+    {
+        "name": "combo_stop",
+        "parameters": ["combo"],
+        "description": "Stops a running combo"
+    },
+    {
+        "name": "combo_restart",
+        "parameters": ["combo"],
+        "description": "Restarts a combo from the beginning"
+    },
+    {
+        "name": "combo_suspend",
+        "parameters": ["combo"],
+        "description": "Suspends a running combo"
+    },
+    {
+        "name": "combo_suspended",
+        "parameters": ["combo"],
+        "description": "Returns TRUE if combo is suspended"
+    },
+    {
+        "name": "combo_current_step",
+        "parameters": ["combo"],
+        "description": "Returns current step number of combo"
+    },
+    {
+        "name": "combo_step_time_left",
+        "parameters": ["combo"],
+        "description": "Returns time left in current combo step"
+    },
+    {
+        "name": "combo_stop_all",
+        "parameters": [],
+        "description": "Stops all running combos"
+    },
+    {
+        "name": "combo_suspend_all",
+        "parameters": [],
+        "description": "Suspends all running combos"
+    },
+    {
+        "name": "combo_resume",
+        "parameters": ["combo"],
+        "description": "Resumes a suspended combo"
+    },
+    {
+        "name": "combo_resume_all",
+        "parameters": [],
+        "description": "Resumes all suspended combos"
+    },
+    {
+        "name": "wait",
+        "parameters": ["time"],
+        "description": "Waits for specified time in milliseconds"
+    },
+    {
+        "name": "call",
+        "parameters": ["combo"],
+        "description": "Calls a defined combo"
+    },
+    {
+        "name": "set_bit",
+        "parameters": ["variable", "bit index"],
+        "description": "Sets a specific bit in a variable"
+    },
+    {
+        "name": "clear_bit",
+        "parameters": ["variable", "bit index"],
+        "description": "Clears a specific bit in a variable"
+    },
+    {
+        "name": "test_bit",
+        "parameters": ["variable", "bit index"],
+        "description": "Tests if a specific bit is set"
+    },
+    {
+        "name": "set_bits",
+        "parameters": ["variable", "value", "bit index", "mask"],
+        "description": "Sets multiple bits using a mask"
+    },
+    {
+        "name": "get_bits",
+        "parameters": ["value", "bit index", "mask"],
+        "description": "Gets multiple bits using mask and shift"
+    },
+    {
+        "name": "abs",
+        "parameters": ["value"],
+        "description": "Returns absolute value of a number"
+    },
+    {
+        "name": "inv",
+        "parameters": ["value"],
+        "description": "Returns inverted value (-value)"
+    },
+    {
+        "name": "pow",
+        "parameters": ["base", "exponent"],
+        "description": "Returns base raised to the power of exponent"
+    },
+    {
+        "name": "isqrt",
+        "parameters": ["value"],
+        "description": "Returns integer square root"
+    },
+    {
+        "name": "random",
+        "parameters": ["min", "max"],
+        "description": "Returns random number between min and max"
+    },
+    {
+        "name": "min",
+        "parameters": ["value1", "value2"],
+        "description": "Returns the smaller of two values"
+    },
+    {
+        "name": "max",
+        "parameters": ["value1", "value2"],
+        "description": "Returns the larger of two values"
+    },
+    {
+        "name": "pixel_oled",
+        "parameters": ["x", "y", "color"],
+        "description": "Sets a pixel on OLED display"
+    },
+    {
+        "name": "line_oled",
+        "parameters": ["from x", "from y", "to x", "to y", "thickness", "color"],
+        "description": "Draws a line on OLED display"
+    },
+    {
+        "name": "rect_oled",
+        "parameters": ["x", "y", "width", "height", "fill", "color"],
+        "description": "Draws a rectangle on OLED display"
+    },
+    {
+        "name": "circle_oled",
+        "parameters": ["x", "y", "radius", "fill", "color"],
+        "description": "Draws a circle on OLED display"
+    },
+    {
+        "name": "putc_oled",
+        "parameters": ["index", "ascii"],
+        "description": " puts a character into the string buffer for puts_oled"
+    },
+    {
+        "name": "puts_oled",
+        "parameters": ["x", "y", "font", "length", "color"],
+        "description": "draws the characters supplied using putc_oled on the OLED display"
+    },
+    {
+        "name": "print",
+        "parameters": ["x", "y", "font", "color", "string addr"],
+        "description": "Prints text to console output"
+    },
+    {
+        "name": "cls_oled",
+        "parameters": ["color"],
+        "description": "Clears the OLED display to a specific color (0 for black, 1 for white)"
+    },
+    {
+        "name": "get_console",
+        "parameters": [],
+        "description": "Gets console type identifier"
+    },
+    {
+        "name": "set_val",
+        "parameters": ["button", "value"],
+        "description": "Sets the output value of a button or axis"
+    },
+    {
+        "name": "block_all_inputs",
+        "parameters": [],
+        "description": "Blocks all controller inputs to the console"
+    },
+    {
+        "name": "get_info",
+        "parameters": ["info_type"],
+        "description": "Gets system information by type"
+    },
+    {
+        "name": "set_polar2",
+        "parameters": ["stick", "radius", "angle"],
+        "description": "Sets stick position using polar coordinates"
+    },
+    {
+        "name": "sizeof",
+        "parameters": ["what"],
+        "description": "Returns the size of a variable or data type in bytes"
+    },
+    {
+        "name": "duint8",
+        "parameters": ["value"],
+        "description": "Undocumented."
+    },
+    {
+        "name": "duint16",
+        "parameters": ["value"],
+        "description": "Undocumented."
+    },
+    {
+        "name": "dint32",
+        "parameters": ["value"],
+        "description": "Undocumented."
+    },
+    {
+        "name": "dint8",
+        "parameters": ["value"],
+        "description": "Undocumented."
+    },
+    {
+        "name": "dint16",
+        "parameters": ["value"],
+        "description": "Undocumented."
+    },
+    {
+        "name": "image_oled",
+        "parameters": ["1", "2", "3", "4", "Image array[0]"],
+        "description": "Prints an image to the OLED display. The parameters are undocumented.\nBest use case is: image_oled(0, 0, TRUE, TRUE, image_array[0]);"
+    },
+    {
+        "name": "get_pvar",
+        "parameters": ["PVAR", "min", "max", "default"],
+        "description": "Returns the value stored within a persistent variable"
+    },
+    {
+        "name": "set_pvar",
+        "parameters": ["PVAR", "value"],
+        "description": "Sets the value of a persistent variable"
+    }
+]

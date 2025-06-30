@@ -1,0 +1,82 @@
+{
+  "name": "gpc-vscode",
+  "displayName": "gpc-vscode",
+  "description": "GPC Language Support for VSCode",
+  "version": "1.0.0",
+  "publisher": "zkiwiko",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkiwiko/gpc-vscode"
+  },
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "gpc",
+      "aliases": ["GPC", "gpc"],
+      "extensions": [".gpc"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "gpc",
+      "scopeName": "source.gpc",
+      "path": "./syntaxes/gpc.tmLanguage.json"
+    }],
+    "configuration": {
+      "title": "GPC Language Support",
+      "properties": {
+        "gpc.inlayHints.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable inlay hints for function parameters and type information"
+        },
+        "gpc.inlayHints.parameterNames": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show parameter names in function calls"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "gen": "antlr4ts -visitor -no-listener -o src/server/parser src/antlr/gpc_grammar.g4",
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.101.0",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0",
+    "antlr4ts-cli": "^0.5.0-alpha.4",
+    "esbuild": "^0.21.5",
+    "eslint": "^8.57.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "antlr4ts": "^0.5.0-alpha.4",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  }
+}
