@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "publisher": "zkiwiko",
   "license": "GPL-3.0-only",
+  "icon": "images/cronus-blue.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkiwiko/gpc-vscode"
