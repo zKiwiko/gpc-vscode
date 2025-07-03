@@ -1,6 +1,6 @@
 {
   "name": "gpc-vscode",
-  "displayName": "gpc-vscode",
+  "displayName": "GPC Language Support",
   "description": "GPC Language Support for VSCode",
   "version": "1.0.0",
   "publisher": "zkiwiko",
