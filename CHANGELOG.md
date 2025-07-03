@@ -1,9 +1,6 @@
 # Change Log
 
-All notable changes to the "gpc-vscode" extension will be documented in this file.
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+## Initial Release - 1.0.0 - 7/3/2025 
 
-## [Unreleased]
-
-- Initial release
+- Read README for info
