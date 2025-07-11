@@ -162,8 +162,8 @@ class Server {
       // Handle completion resolve requests
       this.connection.onCompletionResolve(
         (item: CompletionItem): CompletionItem => {
-          // For now, just return the item as-is since we're providing all details upfront
-          // You can add more detailed documentation or additional processing here if needed
+          // for satisfying the LSP protocol, dont need
+          // it since we provide all details upfront
           return item;
         }
       );

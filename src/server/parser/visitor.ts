@@ -54,10 +54,8 @@ export class Visitor
     return this.errors;
   }
 
-  // Track when variables are used in primary expressions
   visitPrimaryExpression(ctx: PrimaryExpressionContext): void {
     if (!this.isFirstPass) {
-      // Only validate variable usage in the second pass
       if (ctx.ID && ctx.ID()) {
         const idName = ctx.ID()!.text;
 
@@ -71,7 +69,6 @@ export class Visitor
         }
 
         if (this.Variables.has(idName)) {
-          // Mark the variable as used
           const variable = this.Variables.get(idName);
           if (variable) {
             variable.used = true;
@@ -82,10 +79,8 @@ export class Visitor
     return this.visitChildren(ctx);
   }
 
-  // Track when variables are used in assignments
   visitAssignment(ctx: AssignmentContext): void {
     if (!this.isFirstPass) {
-      // Only validate assignment targets in the second pass
       if (ctx.ID && ctx.ID()) {
         const idName = ctx.ID()!.text;
         if (
@@ -108,6 +103,13 @@ export class Visitor
           if (variable) {
             variable.used = true;
           }
+        }
+
+        if (this.Constants.has(idName)) {
+          this.addError(
+            ctx,
+            `Built-in constant '${idName}' cannot be modified or used in an assignment.`
+          );
         }
       }
     }
@@ -136,7 +138,6 @@ export class Visitor
         source: "GPC Semantic Analyzer",
       });
     } else {
-      // If no context, add error with default position
       this.errors.push({
         severity,
         range: {
@@ -163,9 +164,9 @@ export class Visitor
       const CONSTANTS = require("../data/constants.json");
       for (const constant of CONSTANTS) {
         if (this.Constants.has(constant)) {
-          continue; // Skip duplicates
+          continue;
         }
-        // add each to the variables list
+
         this.Constants.set(constant, {
           name: constant,
           const: true,
@@ -182,13 +183,13 @@ export class Visitor
       const FUNCTIONS = require("../data/functions.json");
       for (const func of FUNCTIONS) {
         if (this.CFunctions.has(func.name)) {
-          continue; // Skip duplicates
+          continue;
         }
-        // add each to the functions list
+
         this.CFunctions.set(func.name, {
           name: func.name,
-          parameters: func.parameters, // Use the actual parameter names from the JSON
-          description: func.description, // Include the description
+          parameters: func.parameters,
+          description: func.description,
           used: false,
         });
       }
@@ -197,15 +198,12 @@ export class Visitor
     }
   }
 
-  // Visit the root program node
   visitProgram(ctx: ProgramContext): void {
-    // First pass: collect all declarations
     this.isFirstPass = true;
     for (let i = 0; i < ctx.global_statement().length; i++) {
       this.visit(ctx.global_statement(i));
     }
 
-    // Second pass: validate references and semantics
     this.isFirstPass = false;
     for (let i = 0; i < ctx.global_statement().length; i++) {
       this.visit(ctx.global_statement(i));
@@ -214,24 +212,24 @@ export class Visitor
     return;
   }
 
-  // Visit function declarations
   visitFunction_dec(ctx: Function_decContext): void {
     const functionName = ctx.ID().text;
 
     if (this.isFirstPass) {
-      // First pass: just collect the function declaration
       if (this.Functions.has(functionName)) {
         this.addError(ctx, `Function '${functionName}' is already defined.`);
       }
 
-      if (this.CFunctions.has(functionName)) {
+      if (
+        this.CFunctions.has(functionName) ||
+        this.Constants.has(functionName)
+      ) {
         this.addError(
           ctx,
           `Function '${functionName}' conflicts with a built-in constant.`
         );
       }
 
-      // Add function to the list
       this.Functions.set(functionName, {
         name: functionName,
         parameters: ctx.parameter_list()
@@ -243,7 +241,6 @@ export class Visitor
         used: false,
       });
     } else {
-      // Second pass: set current parameters, validate the function body, then clear
       const params = ctx.parameter_list()
         ? ctx
             .parameter_list()!
@@ -257,10 +254,8 @@ export class Visitor
     }
   }
 
-  // Visit variable declarations
   visitVariable_dec(ctx: Variable_decContext): void {
     if (this.isFirstPass) {
-      // First pass: collect variable declarations
       for (const declarator of ctx.variable_declarator()) {
         const variableName = declarator.ID().text;
 
@@ -277,7 +272,7 @@ export class Visitor
             `Variable '${variableName}' is already defined.`
           );
         } else {
-          if (ctx.text.startsWith("define")) {
+          if (ctx.text.startsWith("define") || ctx.text.startsWith("const")) {
             this.Variables.set(variableName, {
               name: variableName,
               const: true,
@@ -293,7 +288,6 @@ export class Visitor
         }
       }
 
-      // Check variable naming conventions
       ctx.variable_declarator().forEach((declarator) => {
         const varName = declarator.ID().text;
         if (varName.length > 50) {
@@ -304,15 +298,12 @@ export class Visitor
         }
       });
     } else {
-      // Second pass: validate variable usage and expressions
       return this.visitChildren(ctx);
     }
   }
 
-  // Visit array declarations
   visitArray_dec(ctx: Array_decContext): void {
     if (this.isFirstPass) {
-      // First pass: collect array declarations
       const arrayName = ctx.ID().text;
 
       if (this.Constants.has(arrayName)) {
@@ -329,22 +320,18 @@ export class Visitor
         );
       }
 
-      // Add the array to the variables list
       this.Variables.set(arrayName, {
         name: arrayName,
         const: true,
         used: false,
       });
     } else {
-      // Second pass: validate array initialization and expressions
       return this.visitChildren(ctx);
     }
   }
 
-  // Visit enum declarations
   visitEnum_dec(ctx: Enum_decContext): void {
     if (this.isFirstPass) {
-      // First pass: collect enum values
       for (const enumValue of ctx.enum_value()) {
         const valueName = enumValue.ID().text;
         if (
@@ -359,8 +346,6 @@ export class Visitor
           );
         }
 
-        // Check if enum value name follows naming conventions.
-        // All Uppercase with underscores, numbers are alright
         if (!/^[A-Z0-9_]+$/.test(valueName)) {
           this.addHint(
             enumValue,
@@ -368,7 +353,6 @@ export class Visitor
           );
         }
 
-        // Add the enum value to the variables list
         this.Variables.set(valueName, {
           name: valueName,
           const: false,
@@ -376,17 +360,14 @@ export class Visitor
         });
       }
     } else {
-      // Second pass: validate enum expressions
       return this.visitChildren(ctx);
     }
   }
 
   visitFunction_call(ctx: Function_callContext): void {
     if (!this.isFirstPass) {
-      // Only validate function calls in the second pass
       const functionName = ctx.ID().text;
 
-      // Check if function is defined
       if (
         !this.Functions.has(functionName) &&
         !this.CFunctions.has(functionName)
@@ -395,11 +376,9 @@ export class Visitor
         return;
       }
 
-      // Get function for parameter checking - check both user-defined and built-in functions
       const func =
         this.Functions.get(functionName) || this.CFunctions.get(functionName);
 
-      // Check if function call parameters match the definition
       const expectedParams = func?.parameters || [];
       const actualParams = ctx.expression().map((e) => e.text);
 
@@ -414,38 +393,31 @@ export class Visitor
     return this.visitChildren(ctx);
   }
 
-  // Handle main, init, and combo blocks
   visitMain_dec(ctx: any): void {
     if (!this.isFirstPass) {
-      // Only validate main block contents in second pass
       return this.visitChildren(ctx);
     }
   }
 
   visitInit_dec(ctx: any): void {
     if (!this.isFirstPass) {
-      // Only validate init block contents in second pass
       return this.visitChildren(ctx);
     }
   }
 
   visitCombo_dec(ctx: any): void {
     if (this.isFirstPass) {
-      // First pass: collect combo name if needed
-      // Combos are similar to functions but don't have parameters
       const comboName = ctx.ID().text;
       if (this.Combos.has(comboName)) {
         this.addError(ctx, `Combo '${comboName}' is already defined.`);
       }
 
-      // Add combo to combos list
       this.Combos.set(comboName, {
         name: comboName,
         const: true,
         used: false,
       });
     } else {
-      // Second pass: validate combo contents
       return this.visitChildren(ctx);
     }
   }

@@ -1,4 +1,6 @@
 [
+        "TRUE",
+        "FALSE",
         "ASCII_SPACE",
         "ASCII_EXCLAMATION",
         "ASCII_DOUBLE_QUOTE",

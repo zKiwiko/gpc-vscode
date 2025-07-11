@@ -1,5 +1,6 @@
 import { CompletionItem, CompletionItemKind } from "vscode-languageserver";
 import { Parser } from "./parser/parser";
+import { Snippets } from "./snippets";
 
 export class Completions {
   public static getCompletionItems(input: string): CompletionItem[] {
@@ -123,6 +124,19 @@ export class Completions {
         insertText: `${func.name}(${paramSnippet})`, // Snippet with parameter placeholders
         insertTextFormat: 2, // Snippet format
       });
+    }
+
+    for (const combo of visitor.Combos.values()) {
+      items.push({
+        label: combo.name,
+        kind: CompletionItemKind.Enum,
+        detail: `Combo: ${combo.name}`,
+        documentation: `User-defined combo: ${combo.name}`,
+      });
+    }
+
+    for (const snip of Snippets.getSnippets()) {
+      items.push(snip);
     }
 
     return items;

@@ -35,6 +35,49 @@ export function activate(context: vscode.ExtensionContext) {
   // This line of code will only be executed once when your extension is activated
   console.log("Server Started: gpc-vscode");
 
+  const openDocsCommand = vscode.commands.registerCommand(
+    "gpc.openDocumentation",
+    async () => {
+      const options = [
+        {
+          label: "GPC Language Reference",
+          description: "Complete language documentation",
+          url: "https://guide.cronus.support/gpc",
+        },
+        {
+          label: "User Defined Function Reference",
+          description: "GPC scripting functions and their usage",
+          url: "https://guide.cronus.support/gpc/gpc-scripting-user-created-functions",
+        },
+        {
+          label: "User Defined Variable Reference",
+          description: "Creating, using, and managing variables",
+          url: "https://guide.cronus.support/gpc/gpc-scripting-variables",
+        },
+        {
+          label: "Language Constants",
+          description: "Built-in constants available in GPC scripts",
+          url: "https://guide.cronus.support/gpc/gpc-scripting-constants",
+        },
+        {
+          label: "Language Functions",
+          description: "Built-in functions available in GPC scripts",
+          url: "https://guide.cronus.support/gpc/gpc-scripting-functions",
+        },
+      ];
+
+      const selected = await vscode.window.showQuickPick(options, {
+        placeHolder: "Select documentation to open",
+      });
+
+      if (selected) {
+        vscode.env.openExternal(vscode.Uri.parse(selected.url));
+      }
+    }
+  );
+
+  context.subscriptions.push(openDocsCommand);
+
   const ServerOptions: ServerOptions = {
     run: {
       module: context.asAbsolutePath("dist/server.js"),

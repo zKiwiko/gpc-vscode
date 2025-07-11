@@ -18,6 +18,18 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [{
+      "command": "gpc.openDocumentation",
+      "title": "Open Documentation",
+      "category": "GPC"
+    }],
+    "menus": {
+      "commandPalette": [{
+        "command": "gpc.openDocumentation",
+        "when": "resourceExtname == .gpc",
+        "group": "navigation"
+      }]
+    },
     "languages": [{
       "id": "gpc",
       "aliases": ["GPC", "gpc"],

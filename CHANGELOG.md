@@ -3,6 +3,8 @@
 ## [1.1.0] - 2025-07-11
 ### Added
 - Variable existence checking: e.g., `function(var)` now raises an error if `var` doesn't exist.
+- Command to open GPC language documentation: `GPC: Open Documentation`
+- Code Snippets
 
 ### Changed
 - All-caps `enum` member warning is now a hint.
@@ -11,7 +13,7 @@
 
 ### Fixed
 - `combo` names are now included in autocomplete.
-- declaring a function with the same name as a built-in function not raising an error.
+- declaring a function with the same name as a built-in function or constant not raising an error.
 - `document/onDidClose` message now sends correctly.
     - This resets Diagnostics when you close a file.
 - `document/onDidOpen` message now sends correctly.
