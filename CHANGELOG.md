@@ -2,7 +2,7 @@
 
 ## [1.1.0] - 2025-07-11
 ### Added
-- Variable existence checking: e.g., `function(var)` now raises an error if `var` doesn't exist.
+- Variable name resolving: e.g., `function(var)` now raises an error if `var` doesn't exist.
 - Command to open GPC language documentation: `GPC: Open Documentation`
 - Code Snippets
 
