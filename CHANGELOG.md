@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.1] - 2025-07-11
+### Changed
+- Updated parameters/description for the `image_oled` function
+
 ## [1.1.0] - 2025-07-11
 ### Added
 - Variable name resolving: e.g., `function(var)` now raises an error if `var` doesn't exist.
@@ -8,7 +12,7 @@
 
 ### Changed
 - All-caps `enum` member warning is now a hint.
-- Updated documentation for the `image_oled` function.
+- Updated parameters for the `image_oled` function.
 - Semicolons (`;`) at the end of `enum` blocks now raise an error.
 
 ### Fixed

@@ -472,7 +472,7 @@
     {
         "name": "image_oled",
         "parameters": ["x offset", "y offset ", "color", "clear background", "const image"],
-        "description": "Prints an image to the OLED display. The parameters are undocumented.\nBest use case is: image_oled(0, 0, TRUE, TRUE, image_array[0]);"
+        "description": "Prints an image to the OLED display. True details are undocumented.\nMost common use case is: image_oled(0, 0, 1, TRUE, image_array[0]);"
     },
     {
         "name": "get_pvar",
