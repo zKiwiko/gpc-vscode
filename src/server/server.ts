@@ -100,6 +100,22 @@ class Server {
 
   private setupHandlers(): void {
     try {
+      this.documents.onDidOpen((change) => {
+        // reset diagnostics when a document is opened
+        this.connection.sendDiagnostics({
+          uri: change.document.uri,
+          diagnostics: [],
+        });
+      });
+
+      this.documents.onDidClose((change) => {
+        // reset diagnostics when a document is closed
+        this.connection.sendDiagnostics({
+          uri: change.document.uri,
+          diagnostics: [],
+        });
+      });
+
       this.documents.onDidChangeContent((change) => {
         const text = change.document.getText();
         try {

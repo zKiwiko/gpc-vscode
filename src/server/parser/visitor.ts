@@ -35,6 +35,7 @@ export class Visitor
   public Constants: Map<string, Variable> = new Map<string, Variable>();
   public Functions: Map<string, Function> = new Map<string, Function>();
   public CFunctions: Map<string, Function> = new Map<string, Function>();
+  public Combos: Map<string, Variable> = new Map<string, Variable>();
 
   private isFirstPass: boolean = true;
 
@@ -58,7 +59,18 @@ export class Visitor
       // Only validate variable usage in the second pass
       if (ctx.ID && ctx.ID()) {
         const idName = ctx.ID()!.text;
-        // Usage tracking can be implemented here later if needed
+
+        if (!this.Constants.has(idName) || !this.Variables.has(idName)) {
+          this.addError(ctx, `Variable '${idName}' is not defined`);
+        }
+
+        if (this.Variables.has(idName)) {
+          // Mark the variable as used
+          const variable = this.Variables.get(idName);
+          if (variable) {
+            variable.used = true;
+          }
+        }
       }
     }
     return this.visitChildren(ctx);
@@ -111,8 +123,13 @@ export class Visitor
     }
   }
 
+  /*
   private addWarning(ctx: any, message: string) {
     this.addError(ctx, message, DiagnosticSeverity.Warning);
+  } */
+
+  private addHint(ctx: any, message: string) {
+    this.addError(ctx, message, DiagnosticSeverity.Hint);
   }
 
   private loadConstants(): void {
@@ -181,7 +198,7 @@ export class Visitor
         this.addError(ctx, `Function '${functionName}' is already defined.`);
       }
 
-      if (this.Constants.has(functionName)) {
+      if (this.CFunctions.has(functionName)) {
         this.addError(
           ctx,
           `Function '${functionName}' conflicts with a built-in constant.`
@@ -310,7 +327,7 @@ export class Visitor
         // Check if enum value name follows naming conventions.
         // All Uppercase with underscores, numbers are alright
         if (!/^[A-Z0-9_]+$/.test(valueName)) {
-          this.addWarning(
+          this.addHint(
             enumValue,
             `Enum value '${valueName}' should be uppercase and can only contain underscores.`
           );
@@ -382,7 +399,16 @@ export class Visitor
       // First pass: collect combo name if needed
       // Combos are similar to functions but don't have parameters
       const comboName = ctx.ID().text;
-      // You could track combos separately if needed
+      if (this.Combos.has(comboName)) {
+        this.addError(ctx, `Combo '${comboName}' is already defined.`);
+      }
+
+      // Add combo to combos list
+      this.Combos.set(comboName, {
+        name: comboName,
+        const: true,
+        used: false,
+      });
     } else {
       // Second pass: validate combo contents
       return this.visitChildren(ctx);
