@@ -38,6 +38,7 @@ export class Visitor
   public Combos: Map<string, Variable> = new Map<string, Variable>();
 
   private isFirstPass: boolean = true;
+  private currentParameters: Set<string> = new Set<string>();
 
   public static getVariables(visitor: Visitor): Variable[] {
     return Array.from(visitor.Variables.values());
@@ -60,7 +61,12 @@ export class Visitor
       if (ctx.ID && ctx.ID()) {
         const idName = ctx.ID()!.text;
 
-        if (!this.Constants.has(idName) || !this.Variables.has(idName)) {
+        if (
+          !this.Constants.has(idName) &&
+          !this.Variables.has(idName) &&
+          !this.Combos.has(idName) &&
+          !this.currentParameters.has(idName)
+        ) {
           this.addError(ctx, `Variable '${idName}' is not defined`);
         }
 
@@ -82,7 +88,27 @@ export class Visitor
       // Only validate assignment targets in the second pass
       if (ctx.ID && ctx.ID()) {
         const idName = ctx.ID()!.text;
-        // Usage tracking can be implemented here later if needed
+        if (
+          !this.Constants.has(idName) &&
+          !this.Variables.has(idName) &&
+          !this.Combos.has(idName) &&
+          !this.currentParameters.has(idName)
+        ) {
+          this.addError(ctx, `Variable '${idName}' is not defined`);
+        }
+
+        if (this.Variables.has(idName)) {
+          const variable = this.Variables.get(idName);
+          if (variable?.const) {
+            this.addError(
+              ctx,
+              `Constant Variable/Array '${idName}' cannot be modified or used in an assignment.`
+            );
+          }
+          if (variable) {
+            variable.used = true;
+          }
+        }
       }
     }
     return this.visitChildren(ctx);
@@ -210,15 +236,24 @@ export class Visitor
         name: functionName,
         parameters: ctx.parameter_list()
           ? ctx
-              .parameter_list()
-              ?.parameter()
+              .parameter_list()!
+              .parameter()
               .map((p) => p.ID().text)
           : [],
         used: false,
       });
     } else {
-      // Second pass: validate the function body
-      return this.visitChildren(ctx);
+      // Second pass: set current parameters, validate the function body, then clear
+      const params = ctx.parameter_list()
+        ? ctx
+            .parameter_list()!
+            .parameter()
+            .map((p) => p.ID().text)
+        : [];
+      this.currentParameters = new Set(params);
+      const result = this.visitChildren(ctx);
+      this.currentParameters.clear();
+      return result;
     }
   }
 
