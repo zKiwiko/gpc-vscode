@@ -2,7 +2,7 @@
 
 ## [1.1.1] - 2025-07-11
 ### Changed
-- Updated parameters/description for the `image_oled` function
+- Properly Updated parameters/description for the `image_oled` function.
 
 ## [1.1.0] - 2025-07-11
 ### Added
@@ -12,7 +12,7 @@
 
 ### Changed
 - All-caps `enum` member warning is now a hint.
-- Updated parameters for the `image_oled` function.
+- ~~Updated parameters for the `image_oled` function.~~
 - Semicolons (`;`) at the end of `enum` blocks now raise an error.
 
 ### Fixed
