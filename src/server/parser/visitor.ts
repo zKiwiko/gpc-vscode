@@ -150,10 +150,9 @@ export class Visitor
     }
   }
 
-  /*
   private addWarning(ctx: any, message: string) {
     this.addError(ctx, message, DiagnosticSeverity.Warning);
-  } */
+  }
 
   private addHint(ctx: any, message: string) {
     this.addError(ctx, message, DiagnosticSeverity.Hint);
@@ -170,7 +169,7 @@ export class Visitor
         this.Constants.set(constant, {
           name: constant,
           const: true,
-          used: false,
+          used: true,
         });
       }
     } catch (error) {
@@ -190,7 +189,7 @@ export class Visitor
           name: func.name,
           parameters: func.parameters,
           description: func.description,
-          used: false,
+          used: true,
         });
       }
     } catch (error) {
