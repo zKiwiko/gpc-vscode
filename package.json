@@ -2,7 +2,7 @@
   "name": "gpc-vscode",
   "displayName": "GPC Language Tools",
   "description": "GPC Language Tools for VSCode",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "publisher": "zkiwiko",
   "license": "GPL-3.0-only",
   "icon": "images/cronus-blue.png",
@@ -17,6 +17,7 @@
     "Programming Languages"
   ],
   "main": "./dist/extension.js",
+  "activationEvents": [],
   "contributes": {
     "commands": [{
       "command": "gpc.openDocumentation",

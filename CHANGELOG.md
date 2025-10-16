@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.2] - 2025-10-15
+- Fixed inconsistencies with hover info descriptions.
+- Fixed a couple data errors. [#0001](https://github.com/zKiwiko/gpc-vscode/issues/1) [#0002](https://github.com/zKiwiko/gpc-vscode/issues/2)
+
 ## [1.1.1] - 2025-07-11
 ### Changed
 - Properly Updated parameters/description for the `image_oled` function.
