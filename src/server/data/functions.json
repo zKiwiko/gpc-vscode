@@ -126,8 +126,8 @@
     },
     {
         "name": "block_rumble",
-        "parameters": ["motor"],
-        "description": "Blocks rumble for specified motor"
+        "parameters": [],
+        "description": "Blocks rumble for all motors"
     },
     {
         "name": "reset_rumble",
@@ -397,12 +397,12 @@
     {
         "name": "putc_oled",
         "parameters": ["index", "ascii"],
-        "description": " puts a character into the string buffer for puts_oled"
+        "description": "Puts a character into the string buffer for puts_oled"
     },
     {
         "name": "puts_oled",
         "parameters": ["x", "y", "font", "length", "color"],
-        "description": "draws the characters supplied using putc_oled on the OLED display"
+        "description": "Draws the characters supplied by putc_oled on the OLED display"
     },
     {
         "name": "print",
@@ -412,7 +412,7 @@
     {
         "name": "cls_oled",
         "parameters": ["color"],
-        "description": "Clears the OLED display to a specific color (0 for black, 1 for white)"
+        "description": "Clears the OLED display to a specific color"
     },
     {
         "name": "get_console",
@@ -436,7 +436,7 @@
     },
     {
         "name": "set_polar2",
-        "parameters": ["stick", "radius", "angle"],
+        "parameters": ["stick", "angle", "radius"],
         "description": "Sets stick position using polar coordinates"
     },
     {
