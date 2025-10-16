@@ -76,7 +76,7 @@ The extension provides several customizable settings:
 
 1. Open VS Code
 2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search for "GPC Language Support"
+3. Search for "GPC Language Tools"
 4. Click Install
 
 ## Usage
