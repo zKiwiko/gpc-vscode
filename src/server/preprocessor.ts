@@ -45,16 +45,21 @@ export class Preprocessor {
     baseDir: string,
     filePath: string = "main"
   ): PreprocessResult {
-    const visited = new Set<string>();
-    visited.add(path.resolve(baseDir, filePath));
-    return this.processInternal(content, baseDir, filePath, visited, 0);
+    const includeStack = new Set<string>(); // Files currently being processed (for circular detection)
+    const alreadyIncluded = new Set<string>(); // Files already fully processed (skip on re-include)
+    const mainPath = path.resolve(baseDir, filePath);
+    includeStack.add(mainPath);
+    const result = this.processInternal(content, baseDir, filePath, includeStack, alreadyIncluded, 0);
+    alreadyIncluded.add(mainPath);
+    return result;
   }
 
   private static processInternal(
     content: string,
     baseDir: string,
     filePath: string,
-    visited: Set<string>,
+    includeStack: Set<string>,
+    alreadyIncluded: Set<string>,
     depth: number
   ): PreprocessResult {
     const lines = content.split("\n");
@@ -91,8 +96,20 @@ export class Preprocessor {
           continue;
         }
 
-        // Check for circular includes
-        if (visited.has(resolvedPath)) {
+        // Check if already included (skip silently - like #pragma once)
+        if (alreadyIncluded.has(resolvedPath)) {
+          // File was already fully processed, skip it without error
+          resultLines.push(`// [already included] ${line}`);
+          sourceMap.push({
+            processedLine: resultLines.length - 1,
+            originalFile: filePath,
+            originalLine: i,
+          });
+          continue;
+        }
+
+        // Check for circular includes (file is currently being processed)
+        if (includeStack.has(resolvedPath)) {
           errors.push({
             severity: DiagnosticSeverity.Error,
             range: {
@@ -137,17 +154,22 @@ export class Preprocessor {
           const includeContent = fs.readFileSync(resolvedPath, "utf-8");
           const includeDir = path.dirname(resolvedPath);
 
-          // Mark as visited before processing
-          visited.add(resolvedPath);
+          // Mark as being processed (for circular detection)
+          includeStack.add(resolvedPath);
 
           // Process the included file recursively
           const includeResult = this.processInternal(
             includeContent,
             includeDir,
             resolvedPath,
-            visited,
+            includeStack,
+            alreadyIncluded,
             depth + 1
           );
+
+          // Mark as fully processed and remove from stack
+          includeStack.delete(resolvedPath);
+          alreadyIncluded.add(resolvedPath);
 
           // Add a marker comment for the start of the include
           resultLines.push(`// [begin include: ${includePath}]`);
