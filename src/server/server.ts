@@ -154,20 +154,70 @@ class Server {
           const parseErrors = ErrorCollector.collectErrors(preprocessResult.content);
 
           // Map parse errors back to original file coordinates
-          const mappedErrors = parseErrors
+          const mappedResults = parseErrors
             .map((error) => Preprocessor.mapDiagnostic(error, preprocessResult.sourceMap, filePath))
-            .filter((mapped) => mapped !== null && mapped.file === filePath)
-            .map((mapped) => mapped!.diagnostic);
+            .filter((mapped) => mapped !== null);
 
-          // Combine preprocessor errors (for main file only) with mapped parse errors
+          // Separate errors from main file and included files
+          const mainFileErrors: typeof parseErrors = [];
+          const includedFileErrors: typeof parseErrors = [];
+
+          for (const mapped of mappedResults) {
+            if (mapped!.file === filePath) {
+              mainFileErrors.push(mapped!.diagnostic);
+            } else {
+              // Add context about which included file the error is from
+              const includedFileName = path.basename(mapped!.file);
+              const errorWithContext = {
+                ...mapped!.diagnostic,
+                message: `[in ${includedFileName}] ${mapped!.diagnostic.message}`,
+              };
+              // Map the error to the include line for THIS specific file
+              const processedLines = preprocessResult.content.split('\n');
+              const includeLineMapping = preprocessResult.sourceMap.find(
+                m => m.originalFile === filePath &&
+                     processedLines[m.processedLine]?.includes(`[begin include: ${includedFileName}]`)
+              );
+              if (includeLineMapping) {
+                errorWithContext.range = {
+                  start: { line: includeLineMapping.originalLine, character: 0 },
+                  end: { line: includeLineMapping.originalLine, character: 100 },
+                };
+              }
+              includedFileErrors.push(errorWithContext);
+            }
+          }
+
+          // Combine preprocessor errors with mapped parse errors
           const mainFilePreprocessErrors = preprocessResult.errors.filter(
             (e) => !e.message.includes("in included file")
           );
 
           this.connection.sendDiagnostics({
             uri: uri,
-            diagnostics: [...mainFilePreprocessErrors, ...mappedErrors],
+            diagnostics: [...mainFilePreprocessErrors, ...mainFileErrors, ...includedFileErrors],
           });
+
+          // If this file is included by other open documents, re-validate them
+          // Check all open documents to see if they include this file
+          const currentFileName = path.basename(filePath);
+          for (const doc of this.documents.all()) {
+            if (doc.uri === uri) {
+              continue; // Skip self
+            }
+
+            const cached = this.preprocessCache.get(doc.uri);
+            if (cached) {
+              // Check if any source mapping references this file
+              const includesThisFile = cached.result.sourceMap.some(
+                m => m.originalFile === filePath ||
+                     path.basename(m.originalFile) === currentFileName
+              );
+              if (includesThisFile) {
+                this.revalidateDocument(doc);
+              }
+            }
+          }
         } catch (error) {
           this.connection.console.error(
             `Error processing document ${uri}: ${error}`
@@ -424,6 +474,70 @@ class Server {
       );
     } catch (error) {
       console.error("Error setting up language server handlers:", error);
+    }
+  }
+
+  /**
+   * Re-validate a document (used when an included file changes)
+   */
+  private revalidateDocument(document: TextDocument): void {
+    const text = document.getText();
+    const uri = document.uri;
+
+    try {
+      Parser.clearCache();
+      const filePath = fileURLToPath(uri);
+      const baseDir = path.dirname(filePath);
+      const preprocessResult = Preprocessor.process(text, baseDir, filePath);
+
+      this.preprocessCache.set(uri, {
+        result: preprocessResult,
+        processedText: preprocessResult.content,
+      });
+
+      const parseErrors = ErrorCollector.collectErrors(preprocessResult.content);
+      const mappedResults = parseErrors
+        .map((error) => Preprocessor.mapDiagnostic(error, preprocessResult.sourceMap, filePath))
+        .filter((mapped) => mapped !== null);
+
+      const mainFileErrors: typeof parseErrors = [];
+      const includedFileErrors: typeof parseErrors = [];
+
+      for (const mapped of mappedResults) {
+        if (mapped!.file === filePath) {
+          mainFileErrors.push(mapped!.diagnostic);
+        } else {
+          const includedFileName = path.basename(mapped!.file);
+          const errorWithContext = {
+            ...mapped!.diagnostic,
+            message: `[in ${includedFileName}] ${mapped!.diagnostic.message}`,
+          };
+          // Map the error to the include line for THIS specific file
+          const processedLines = preprocessResult.content.split('\n');
+          const includeLineMapping = preprocessResult.sourceMap.find(
+            m => m.originalFile === filePath &&
+                 processedLines[m.processedLine]?.includes(`[begin include: ${includedFileName}]`)
+          );
+          if (includeLineMapping) {
+            errorWithContext.range = {
+              start: { line: includeLineMapping.originalLine, character: 0 },
+              end: { line: includeLineMapping.originalLine, character: 100 },
+            };
+          }
+          includedFileErrors.push(errorWithContext);
+        }
+      }
+
+      const mainFilePreprocessErrors = preprocessResult.errors.filter(
+        (e) => !e.message.includes("in included file")
+      );
+
+      this.connection.sendDiagnostics({
+        uri: uri,
+        diagnostics: [...mainFilePreprocessErrors, ...mainFileErrors, ...includedFileErrors],
+      });
+    } catch (error) {
+      this.connection.console.error(`Error revalidating document ${uri}: ${error}`);
     }
   }
 

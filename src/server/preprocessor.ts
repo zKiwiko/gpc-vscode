@@ -26,7 +26,8 @@ export interface PreprocessResult {
   errors: Diagnostic[];
 }
 
-const INCLUDE_REGEX = /^(\s*)#include\s+["']([^"']+)["']\s*$/;
+// Support both quotes ("file" or 'file') and angle brackets (<file>)
+const INCLUDE_REGEX = /^(\s*)#include\s+(?:["']([^"']+)["']|<([^>]+)>)\s*$/;
 const MAX_INCLUDE_DEPTH = 10;
 
 /**
@@ -72,7 +73,8 @@ export class Preprocessor {
       const match = line.match(INCLUDE_REGEX);
 
       if (match) {
-        const includePath = match[2];
+        // match[2] is path from quotes, match[3] is path from angle brackets
+        const includePath = match[2] || match[3];
         const resolvedPath = path.resolve(baseDir, includePath);
 
         // Check for max depth
@@ -109,17 +111,8 @@ export class Preprocessor {
         }
 
         // Check for circular includes (file is currently being processed)
+        // Skip silently since the builder only includes unique file paths
         if (includeStack.has(resolvedPath)) {
-          errors.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-              start: { line: i, character: 0 },
-              end: { line: i, character: line.length },
-            },
-            message: `Circular include detected: ${includePath}`,
-            source: "GPC Preprocessor",
-          });
-          // Keep the include line as-is but commented
           resultLines.push(`// [circular] ${line}`);
           sourceMap.push({
             processedLine: resultLines.length - 1,

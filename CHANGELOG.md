@@ -1,12 +1,18 @@
 # Changelog
 
+## [1.2.1] - 2026-01-25
+### Changed
+- Added angle bracket syntax support: `#include <filename.gpc>`
+- Circular includes now silently skip instead of showing errors (matches builder behavior)
+- Errors in included files now display with `[in filename.gpc]` prefix for clarity
+
 ## [1.2.0] - 2026-01-25
 ### Added
 - **`#include` directive support** for modular code organization
-  - Syntax: `#include "filename.gpc"` or `#include 'filename.gpc'`
+  - Syntax: `#include "filename.gpc"`, `#include 'filename.gpc'`, or `#include <filename.gpc>`
   - Paths are resolved relative to the current file
   - Recursive includes supported (max depth: 10)
-  - Circular include detection with error reporting
+  - Circular includes are silently skipped (like the builder)
 - **Cross-file language features**:
   - Auto-completion now includes symbols from included files
   - Hover shows information for symbols from includes (with source file indicator)
