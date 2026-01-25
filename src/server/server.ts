@@ -16,10 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import * as path from "path";
+import { fileURLToPath } from "url";
 import { Completions } from "./completion";
 import { ErrorCollector } from "./errors";
-import { LanguageFeatures } from "./features";
+import { IncludeContext, LanguageFeatures } from "./features";
 import { Parser } from "./parser/parser";
+import { Preprocessor, PreprocessResult, SourceMapping } from "./preprocessor";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
@@ -45,12 +48,20 @@ import {
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
 
+/** Cached preprocess result for a document */
+interface DocumentPreprocessInfo {
+  result: PreprocessResult;
+  processedText: string;
+}
+
 class Server {
   private connection = createConnection(ProposedFeatures.all);
   private documents: TextDocuments<TextDocument> = new TextDocuments(
     TextDocument
   );
   private hasConfigurationCapability = false;
+  /** Cache of preprocess results by document URI */
+  private preprocessCache: Map<string, DocumentPreprocessInfo> = new Map();
 
   constructor() {
     try {
@@ -114,23 +125,52 @@ class Server {
           uri: change.document.uri,
           diagnostics: [],
         });
+        // Clean up preprocess cache
+        this.preprocessCache.delete(change.document.uri);
       });
 
       this.documents.onDidChangeContent((change) => {
         const text = change.document.getText();
+        const uri = change.document.uri;
+
         try {
           // Clear cache when document changes
           Parser.clearCache();
 
-          // Collect errors from the document text by parsing.
-          const errors = ErrorCollector.collectErrors(text);
+          // Get the base directory from the document URI
+          const filePath = fileURLToPath(uri);
+          const baseDir = path.dirname(filePath);
+
+          // Preprocess the document to resolve includes
+          const preprocessResult = Preprocessor.process(text, baseDir, filePath);
+
+          // Cache the preprocess result for use by other handlers
+          this.preprocessCache.set(uri, {
+            result: preprocessResult,
+            processedText: preprocessResult.content,
+          });
+
+          // Collect errors from the preprocessed content
+          const parseErrors = ErrorCollector.collectErrors(preprocessResult.content);
+
+          // Map parse errors back to original file coordinates
+          const mappedErrors = parseErrors
+            .map((error) => Preprocessor.mapDiagnostic(error, preprocessResult.sourceMap, filePath))
+            .filter((mapped) => mapped !== null && mapped.file === filePath)
+            .map((mapped) => mapped!.diagnostic);
+
+          // Combine preprocessor errors (for main file only) with mapped parse errors
+          const mainFilePreprocessErrors = preprocessResult.errors.filter(
+            (e) => !e.message.includes("in included file")
+          );
+
           this.connection.sendDiagnostics({
-            uri: change.document.uri,
-            diagnostics: errors,
+            uri: uri,
+            diagnostics: [...mainFilePreprocessErrors, ...mappedErrors],
           });
         } catch (error) {
           this.connection.console.error(
-            `Error processing document ${change.document.uri}: ${error}`
+            `Error processing document ${uri}: ${error}`
           );
         }
       });
@@ -147,7 +187,10 @@ class Server {
             return [];
           }
 
-          const text = document.getText();
+          // Use preprocessed content to include symbols from included files
+          const cached = this.preprocessCache.get(textDocumentPosition.textDocument.uri);
+          const text = cached ? cached.processedText : document.getText();
+
           try {
             return Completions.getCompletionItems(text);
           } catch (error) {
@@ -176,6 +219,24 @@ class Server {
             return null;
           }
 
+          const cached = this.preprocessCache.get(params.textDocument.uri);
+          if (cached) {
+            // Use include-aware hover
+            const context: IncludeContext = {
+              originalText: document.getText(),
+              processedText: cached.processedText,
+              sourceMap: cached.result.sourceMap,
+              mainUri: params.textDocument.uri,
+            };
+            try {
+              return LanguageFeatures.getHoverInfoWithIncludes(context, params.position);
+            } catch (error) {
+              this.connection.console.error(`Error providing hover info: ${error}`);
+              return null;
+            }
+          }
+
+          // Fallback to original behavior
           const text = document.getText();
           try {
             return LanguageFeatures.getHoverInfo(text, params.position);
@@ -195,6 +256,24 @@ class Server {
           return [];
         }
 
+        const cached = this.preprocessCache.get(params.textDocument.uri);
+        if (cached) {
+          // Use include-aware definition
+          const context: IncludeContext = {
+            originalText: document.getText(),
+            processedText: cached.processedText,
+            sourceMap: cached.result.sourceMap,
+            mainUri: params.textDocument.uri,
+          };
+          try {
+            return LanguageFeatures.getDefinitionWithIncludes(context, params.position);
+          } catch (error) {
+            this.connection.console.error(`Error providing definition: ${error}`);
+            return [];
+          }
+        }
+
+        // Fallback to original behavior
         const text = document.getText();
         try {
           const locations = LanguageFeatures.getDefinition(
@@ -265,6 +344,24 @@ class Server {
             return null;
           }
 
+          const cached = this.preprocessCache.get(params.textDocument.uri);
+          if (cached) {
+            // Use include-aware signature help
+            const context: IncludeContext = {
+              originalText: document.getText(),
+              processedText: cached.processedText,
+              sourceMap: cached.result.sourceMap,
+              mainUri: params.textDocument.uri,
+            };
+            try {
+              return LanguageFeatures.getSignatureHelpWithIncludes(context, params.position);
+            } catch (error) {
+              this.connection.console.error(`Error providing signature help: ${error}`);
+              return null;
+            }
+          }
+
+          // Fallback to original behavior
           const text = document.getText();
           try {
             return LanguageFeatures.getSignatureHelp(text, params.position);

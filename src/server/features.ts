@@ -12,6 +12,19 @@ import {
   SymbolKind,
 } from "vscode-languageserver";
 import { Parser } from "./parser/parser";
+import { SourceMapping } from "./preprocessor";
+
+/** Context for include-aware language features */
+export interface IncludeContext {
+  /** Original document text (for position-based operations) */
+  originalText: string;
+  /** Preprocessed text with includes expanded (for symbol lookup) */
+  processedText: string;
+  /** Source mappings from preprocessor */
+  sourceMap: SourceMapping[];
+  /** URI of the main document */
+  mainUri: string;
+}
 
 export class LanguageFeatures {
   public static getHoverInfo(input: string, position: Position): Hover | null {
@@ -578,5 +591,282 @@ export class LanguageFeatures {
     }
 
     return line.substring(start, end);
+  }
+
+  /**
+   * Get hover info with include support.
+   * Uses original text for cursor position, but looks up symbols from preprocessed content.
+   */
+  public static getHoverInfoWithIncludes(
+    context: IncludeContext,
+    position: Position
+  ): Hover | null {
+    // Get the word from the original text at cursor position
+    const word = this.getWordAtPosition(context.originalText, position);
+    if (!word) {
+      return null;
+    }
+
+    // Get visitor from preprocessed content (has all symbols including from includes)
+    const visitor = Parser.getVisitor(context.processedText);
+
+    // Check variables
+    const variable = visitor.Variables.get(word) || visitor.Constants.get(word);
+    if (variable) {
+      const type = visitor.Constants.has(word)
+        ? "Built-in Constant"
+        : variable.const
+        ? "Constant"
+        : "Variable";
+
+      // Check if it's from an included file
+      const sourceInfo = this.findSymbolSource(word, context, "variable");
+
+      let value = `**${type}**: \`${word}\``;
+      if (sourceInfo && sourceInfo.file !== context.mainUri) {
+        value += `\n\n*Defined in: ${this.getFileName(sourceInfo.file)}*`;
+      }
+
+      return {
+        contents: {
+          kind: MarkupKind.Markdown,
+          value: value,
+        },
+      };
+    }
+
+    // Check functions
+    const func = visitor.Functions.get(word) || visitor.CFunctions.get(word);
+    if (func) {
+      const type = visitor.CFunctions.has(word)
+        ? "Built-in Function"
+        : "User Function";
+      const params = func.parameters?.join(", ") || "";
+
+      let value = `**${type}**: \`${word}(${params})\``;
+
+      // Add description for built-in functions
+      if (func.description && visitor.CFunctions.has(word)) {
+        value += `\n\n${func.description}`;
+      }
+
+      // Check if it's from an included file
+      if (!visitor.CFunctions.has(word)) {
+        const sourceInfo = this.findSymbolSource(word, context, "function");
+        if (sourceInfo && sourceInfo.file !== context.mainUri) {
+          value += `\n\n*Defined in: ${this.getFileName(sourceInfo.file)}*`;
+        }
+      }
+
+      return {
+        contents: {
+          kind: MarkupKind.Markdown,
+          value: value,
+        },
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Get definition with include support.
+   * Searches in preprocessed content and maps back to original file locations.
+   */
+  public static getDefinitionWithIncludes(
+    context: IncludeContext,
+    position: Position
+  ): Location[] {
+    const word = this.getWordAtPosition(context.originalText, position);
+    if (!word) {
+      return [];
+    }
+
+    const lines = context.processedText.split("\n");
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+
+      // Look for variable declarations
+      const varMatch = line.match(new RegExp(`(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${word}\\b`));
+      if (varMatch) {
+        const charIndex = line.indexOf(word, varMatch.index);
+        if (charIndex !== -1) {
+          // Map back to original file
+          const mapping = context.sourceMap.find(m => m.processedLine === lineIndex);
+          if (mapping) {
+            return [{
+              uri: this.pathToUri(mapping.originalFile),
+              range: {
+                start: { line: mapping.originalLine, character: charIndex },
+                end: { line: mapping.originalLine, character: charIndex + word.length },
+              },
+            }];
+          }
+        }
+      }
+
+      // Look for function declarations
+      if (line.includes(`function ${word}`)) {
+        const charIndex = line.indexOf(word);
+        if (charIndex !== -1) {
+          // Map back to original file
+          const mapping = context.sourceMap.find(m => m.processedLine === lineIndex);
+          if (mapping) {
+            return [{
+              uri: this.pathToUri(mapping.originalFile),
+              range: {
+                start: { line: mapping.originalLine, character: charIndex },
+                end: { line: mapping.originalLine, character: charIndex + word.length },
+              },
+            }];
+          }
+        }
+      }
+    }
+
+    return [];
+  }
+
+  /**
+   * Get signature help with include support.
+   */
+  public static getSignatureHelpWithIncludes(
+    context: IncludeContext,
+    position: Position
+  ): SignatureHelp | null {
+    // Get visitor from preprocessed content (has all function signatures)
+    const visitor = Parser.getVisitor(context.processedText);
+    const lines = context.originalText.split("\n");
+    const currentLine = lines[position.line];
+
+    if (!currentLine) {
+      return null;
+    }
+
+    // Find function call context - look for function name followed by open paren
+    let functionStart = position.character - 1;
+    let parenCount = 0;
+    let foundFunction = false;
+
+    // Walk backwards to find the function call
+    for (let i = position.character - 1; i >= 0; i--) {
+      const char = currentLine[i];
+
+      if (char === ")") {
+        parenCount++;
+      } else if (char === "(") {
+        parenCount--;
+        if (parenCount < 0) {
+          functionStart = i - 1;
+          foundFunction = true;
+          break;
+        }
+      }
+    }
+
+    if (!foundFunction) {
+      return null;
+    }
+
+    // Extract function name
+    let functionNameStart = functionStart;
+    while (
+      functionNameStart >= 0 &&
+      /[a-zA-Z0-9_]/.test(currentLine[functionNameStart])
+    ) {
+      functionNameStart--;
+    }
+    functionNameStart++;
+
+    const functionName = currentLine.substring(functionNameStart, functionStart + 1);
+
+    // Find the function definition (from preprocessed content's visitor)
+    const func = visitor.Functions.get(functionName) || visitor.CFunctions.get(functionName);
+    if (!func) {
+      return null;
+    }
+
+    // Count current parameter position
+    let paramIndex = 0;
+    let commaCount = 0;
+    for (let i = functionStart + 2; i <= position.character; i++) {
+      if (currentLine[i] === ",") {
+        commaCount++;
+      }
+    }
+    paramIndex = commaCount;
+
+    // Create signature information
+    const parameters: ParameterInformation[] = (func.parameters || []).map(
+      (param) => ({
+        label: param,
+        documentation: `Parameter: ${param}`,
+      })
+    );
+
+    const signature: SignatureInformation = {
+      label: `${functionName}(${func.parameters?.join(", ") || ""})`,
+      documentation: func.description || `Function: ${functionName}`,
+      parameters: parameters,
+    };
+
+    return {
+      signatures: [signature],
+      activeSignature: 0,
+      activeParameter: Math.min(paramIndex, parameters.length - 1),
+    };
+  }
+
+  /**
+   * Find where a symbol is defined in the source
+   */
+  private static findSymbolSource(
+    symbolName: string,
+    context: IncludeContext,
+    symbolType: "variable" | "function"
+  ): { file: string; line: number } | null {
+    const lines = context.processedText.split("\n");
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+      let found = false;
+
+      if (symbolType === "variable") {
+        found = !!(line.match(new RegExp(`(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${symbolName}\\b`)));
+      } else if (symbolType === "function") {
+        found = line.includes(`function ${symbolName}`);
+      }
+
+      if (found) {
+        const mapping = context.sourceMap.find(m => m.processedLine === lineIndex);
+        if (mapping) {
+          return { file: mapping.originalFile, line: mapping.originalLine };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract filename from a path
+   */
+  private static getFileName(filePath: string): string {
+    const parts = filePath.split(/[/\\]/);
+    return parts[parts.length - 1] || filePath;
+  }
+
+  /**
+   * Convert a file path to a file:// URI
+   */
+  private static pathToUri(filePath: string): string {
+    // Handle Windows and Unix paths
+    if (filePath.startsWith("/")) {
+      return `file://${filePath}`;
+    } else if (/^[a-zA-Z]:/.test(filePath)) {
+      return `file:///${filePath.replace(/\\/g, "/")}`;
+    }
+    return `file://${filePath}`;
   }
 }
