@@ -31,6 +31,8 @@ import {
   CompletionItem,
   createConnection,
   DefinitionParams,
+  DocumentLink,
+  DocumentLinkParams,
   DocumentSymbol,
   DocumentSymbolParams,
   Hover,
@@ -47,6 +49,7 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
+import { pathToFileURL } from "url";
 
 /** Cached preprocess result for a document */
 interface DocumentPreprocessInfo {
@@ -97,6 +100,9 @@ class Server {
               },
               codeActionProvider: true,
               inlayHintProvider: true,
+              documentLinkProvider: {
+                resolveProvider: false,
+              },
             },
           };
         }
@@ -129,77 +135,16 @@ class Server {
         this.preprocessCache.delete(change.document.uri);
       });
 
-      this.documents.onDidChangeContent((change) => {
+      this.documents.onDidChangeContent(async (change) => {
         const text = change.document.getText();
         const uri = change.document.uri;
 
+        // Validate the changed document (async to avoid blocking LSP thread)
+        await this.validateAndSendDiagnostics(uri, text);
+
+        // If this file is included by other open documents, re-validate them
         try {
-          // Clear cache when document changes
-          Parser.clearCache();
-
-          // Get the base directory from the document URI
           const filePath = fileURLToPath(uri);
-          const baseDir = path.dirname(filePath);
-
-          // Preprocess the document to resolve includes
-          const preprocessResult = Preprocessor.process(text, baseDir, filePath);
-
-          // Cache the preprocess result for use by other handlers
-          this.preprocessCache.set(uri, {
-            result: preprocessResult,
-            processedText: preprocessResult.content,
-          });
-
-          // Collect errors from the preprocessed content
-          const parseErrors = ErrorCollector.collectErrors(preprocessResult.content);
-
-          // Map parse errors back to original file coordinates
-          const mappedResults = parseErrors
-            .map((error) => Preprocessor.mapDiagnostic(error, preprocessResult.sourceMap, filePath))
-            .filter((mapped) => mapped !== null);
-
-          // Separate errors from main file and included files
-          const mainFileErrors: typeof parseErrors = [];
-          const includedFileErrors: typeof parseErrors = [];
-
-          for (const mapped of mappedResults) {
-            if (mapped!.file === filePath) {
-              mainFileErrors.push(mapped!.diagnostic);
-            } else {
-              // Add context about which included file the error is from
-              const includedFileName = path.basename(mapped!.file);
-              const errorWithContext = {
-                ...mapped!.diagnostic,
-                message: `[in ${includedFileName}] ${mapped!.diagnostic.message}`,
-              };
-              // Map the error to the include line for THIS specific file
-              const processedLines = preprocessResult.content.split('\n');
-              const includeLineMapping = preprocessResult.sourceMap.find(
-                m => m.originalFile === filePath &&
-                     processedLines[m.processedLine]?.includes(`[begin include: ${includedFileName}]`)
-              );
-              if (includeLineMapping) {
-                errorWithContext.range = {
-                  start: { line: includeLineMapping.originalLine, character: 0 },
-                  end: { line: includeLineMapping.originalLine, character: 100 },
-                };
-              }
-              includedFileErrors.push(errorWithContext);
-            }
-          }
-
-          // Combine preprocessor errors with mapped parse errors
-          const mainFilePreprocessErrors = preprocessResult.errors.filter(
-            (e) => !e.message.includes("in included file")
-          );
-
-          this.connection.sendDiagnostics({
-            uri: uri,
-            diagnostics: [...mainFilePreprocessErrors, ...mainFileErrors, ...includedFileErrors],
-          });
-
-          // If this file is included by other open documents, re-validate them
-          // Check all open documents to see if they include this file
           const currentFileName = path.basename(filePath);
           for (const doc of this.documents.all()) {
             if (doc.uri === uri) {
@@ -214,13 +159,13 @@ class Server {
                      path.basename(m.originalFile) === currentFileName
               );
               if (includesThisFile) {
-                this.revalidateDocument(doc);
+                await this.revalidateDocument(doc);
               }
             }
           }
         } catch (error) {
           this.connection.console.error(
-            `Error processing document ${uri}: ${error}`
+            `Error checking dependent documents for ${uri}: ${error}`
           );
         }
       });
@@ -472,23 +417,72 @@ class Server {
           }
         }
       );
+
+      // Handle document link requests (Ctrl+click on #include)
+      this.connection.onDocumentLinks(
+        (params: DocumentLinkParams): DocumentLink[] => {
+          const document = this.documents.get(params.textDocument.uri);
+          if (!document) {
+            return [];
+          }
+
+          const text = document.getText();
+          const links: DocumentLink[] = [];
+          const lines = text.split("\n");
+
+          // Regex to match #include directives
+          const includeRegex = /^(\s*)#include\s+(?:["']([^"']+)["']|<([^>]+)>)/;
+
+          try {
+            const filePath = fileURLToPath(params.textDocument.uri);
+            const baseDir = path.dirname(filePath);
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              const match = line.match(includeRegex);
+
+              if (match) {
+                const includePath = match[2] || match[3];
+                const resolvedPath = path.resolve(baseDir, includePath);
+
+                // Find the position of the path in the line
+                const pathStart = line.indexOf(includePath);
+                const pathEnd = pathStart + includePath.length;
+
+                links.push({
+                  range: {
+                    start: { line: i, character: pathStart },
+                    end: { line: i, character: pathEnd },
+                  },
+                  target: pathToFileURL(resolvedPath).toString(),
+                  tooltip: `Open ${includePath}`,
+                });
+              }
+            }
+          } catch (error) {
+            this.connection.console.error(
+              `Error providing document links: ${error}`
+            );
+          }
+
+          return links;
+        }
+      );
     } catch (error) {
       console.error("Error setting up language server handlers:", error);
     }
   }
 
   /**
-   * Re-validate a document (used when an included file changes)
+   * Validate a document and send diagnostics
+   * Shared logic for both document changes and revalidation
    */
-  private revalidateDocument(document: TextDocument): void {
-    const text = document.getText();
-    const uri = document.uri;
-
+  private async validateAndSendDiagnostics(uri: string, text: string): Promise<void> {
     try {
       Parser.clearCache();
       const filePath = fileURLToPath(uri);
       const baseDir = path.dirname(filePath);
-      const preprocessResult = Preprocessor.process(text, baseDir, filePath);
+      const preprocessResult = await Preprocessor.process(text, baseDir, filePath);
 
       this.preprocessCache.set(uri, {
         result: preprocessResult,
@@ -507,10 +501,12 @@ class Server {
         if (mapped!.file === filePath) {
           mainFileErrors.push(mapped!.diagnostic);
         } else {
-          const includedFileName = path.basename(mapped!.file);
+          const includedFilePath = mapped!.file;
+          const includedFileName = path.basename(includedFilePath);
+          const fileUri = `file://${includedFilePath}`;
           const errorWithContext = {
             ...mapped!.diagnostic,
-            message: `[in ${includedFileName}] ${mapped!.diagnostic.message}`,
+            message: `[${fileUri}](${fileUri}) ${mapped!.diagnostic.message}`,
           };
           // Map the error to the include line for THIS specific file
           const processedLines = preprocessResult.content.split('\n');
@@ -537,8 +533,15 @@ class Server {
         diagnostics: [...mainFilePreprocessErrors, ...mainFileErrors, ...includedFileErrors],
       });
     } catch (error) {
-      this.connection.console.error(`Error revalidating document ${uri}: ${error}`);
+      this.connection.console.error(`Error validating document ${uri}: ${error}`);
     }
+  }
+
+  /**
+   * Re-validate a document (used when an included file changes)
+   */
+  private async revalidateDocument(document: TextDocument): Promise<void> {
+    await this.validateAndSendDiagnostics(document.uri, document.getText());
   }
 
   private async getConfiguration(uri?: string): Promise<{

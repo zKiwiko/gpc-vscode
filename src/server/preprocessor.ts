@@ -2,6 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver";
 
+const fsPromises = fs.promises;
+
 /**
  * Maps a line in processed content back to its original source location
  */
@@ -41,28 +43,28 @@ export class Preprocessor {
    * @param filePath The path of the file being processed (for source mapping)
    * @returns PreprocessResult with expanded content, source map, and any errors
    */
-  public static process(
+  public static async process(
     content: string,
     baseDir: string,
     filePath: string = "main"
-  ): PreprocessResult {
+  ): Promise<PreprocessResult> {
     const includeStack = new Set<string>(); // Files currently being processed (for circular detection)
     const alreadyIncluded = new Set<string>(); // Files already fully processed (skip on re-include)
     const mainPath = path.resolve(baseDir, filePath);
     includeStack.add(mainPath);
-    const result = this.processInternal(content, baseDir, filePath, includeStack, alreadyIncluded, 0);
+    const result = await this.processInternal(content, baseDir, filePath, includeStack, alreadyIncluded, 0);
     alreadyIncluded.add(mainPath);
     return result;
   }
 
-  private static processInternal(
+  private static async processInternal(
     content: string,
     baseDir: string,
     filePath: string,
     includeStack: Set<string>,
     alreadyIncluded: Set<string>,
     depth: number
-  ): PreprocessResult {
+  ): Promise<PreprocessResult> {
     const lines = content.split("\n");
     const resultLines: string[] = [];
     const sourceMap: SourceMapping[] = [];
@@ -124,14 +126,17 @@ export class Preprocessor {
 
         // Try to read the included file
         try {
-          if (!fs.existsSync(resolvedPath)) {
+          // Check if file exists using async access
+          try {
+            await fsPromises.access(resolvedPath, fs.constants.R_OK);
+          } catch {
             errors.push({
               severity: DiagnosticSeverity.Error,
               range: {
                 start: { line: i, character: 0 },
                 end: { line: i, character: line.length },
               },
-              message: `Include file not found: ${includePath}`,
+              message: `Include file not found: ${resolvedPath}`,
               source: "GPC Preprocessor",
             });
             // Keep the include line as-is but commented
@@ -144,14 +149,14 @@ export class Preprocessor {
             continue;
           }
 
-          const includeContent = fs.readFileSync(resolvedPath, "utf-8");
+          const includeContent = await fsPromises.readFile(resolvedPath, "utf-8");
           const includeDir = path.dirname(resolvedPath);
 
           // Mark as being processed (for circular detection)
           includeStack.add(resolvedPath);
 
           // Process the included file recursively
-          const includeResult = this.processInternal(
+          const includeResult = await this.processInternal(
             includeContent,
             includeDir,
             resolvedPath,
@@ -214,7 +219,7 @@ export class Preprocessor {
               start: { line: i, character: 0 },
               end: { line: i, character: line.length },
             },
-            message: `Error reading include file: ${includePath} - ${err}`,
+            message: `Error reading include file: ${resolvedPath} - ${err}`,
             source: "GPC Preprocessor",
           });
           resultLines.push(`// [error] ${line}`);
