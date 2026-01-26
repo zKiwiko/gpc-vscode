@@ -58,6 +58,7 @@ A comprehensive Visual Studio Code extension for the Cronus Zen's GPC Scripting 
 - **Syntax**: `#include "filename.gpc"`, `#include 'filename.gpc'`, or `#include <filename.gpc>`
 - **Recursive includes** - included files can have their own includes
 - **Circular includes** - silently skipped (matches builder behavior)
+- **Unused include detection** - hints when an included file has no symbols used
 - **Cross-file features**:
   - Auto-completion includes symbols from included files
   - Hover shows info for symbols from includes (with source file indicator)
@@ -209,3 +210,4 @@ Copyright (C) 2025 zkiwiko
 - ✅ Forward reference support
 - ✅ Comprehensive built-in function library
 - ✅ **`#include` directive support** for modular code
+- ✅ **Unused include detection** with hints for unused files

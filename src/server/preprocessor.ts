@@ -26,6 +26,8 @@ export interface PreprocessResult {
   sourceMap: SourceMapping[];
   /** Errors encountered during preprocessing (file not found, circular includes) */
   errors: Diagnostic[];
+  /** List of all successfully included file paths */
+  includedFiles: string[];
 }
 
 // Support both quotes ("file" or 'file') and angle brackets (<file>)
@@ -50,11 +52,12 @@ export class Preprocessor {
   ): Promise<PreprocessResult> {
     const includeStack = new Set<string>(); // Files currently being processed (for circular detection)
     const alreadyIncluded = new Set<string>(); // Files already fully processed (skip on re-include)
+    const includedFiles: string[] = []; // Track all successfully included files
     const mainPath = path.resolve(baseDir, filePath);
     includeStack.add(mainPath);
-    const result = await this.processInternal(content, baseDir, filePath, includeStack, alreadyIncluded, 0);
+    const result = await this.processInternal(content, baseDir, filePath, includeStack, alreadyIncluded, includedFiles, 0);
     alreadyIncluded.add(mainPath);
-    return result;
+    return { ...result, includedFiles };
   }
 
   private static async processInternal(
@@ -63,8 +66,9 @@ export class Preprocessor {
     filePath: string,
     includeStack: Set<string>,
     alreadyIncluded: Set<string>,
+    includedFiles: string[],
     depth: number
-  ): Promise<PreprocessResult> {
+  ): Promise<Omit<PreprocessResult, 'includedFiles'>> {
     const lines = content.split("\n");
     const resultLines: string[] = [];
     const sourceMap: SourceMapping[] = [];
@@ -162,12 +166,14 @@ export class Preprocessor {
             resolvedPath,
             includeStack,
             alreadyIncluded,
+            includedFiles,
             depth + 1
           );
 
           // Mark as fully processed and remove from stack
           includeStack.delete(resolvedPath);
           alreadyIncluded.add(resolvedPath);
+          includedFiles.push(resolvedPath);
 
           // Add a marker comment for the start of the include
           resultLines.push(`// [begin include: ${includePath}]`);

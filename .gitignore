@@ -8,3 +8,7 @@ antlr/
 *.tokens
 *.ps1
 *.gpc
+bin
+.claude
+CLAUDE.md
+TODO.md

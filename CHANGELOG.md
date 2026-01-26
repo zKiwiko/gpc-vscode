@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.2] - 2026-01-26
+### Fixed
+- **Unused include detection** now properly tracks function and combo usage
+  - Functions are marked as used when called
+  - Combos are marked as used when referenced in `combo_run`, `combo_stop`, `combo_restart`, `combo_running`
+- Commented-out code no longer triggers false "symbol used" detection
+- Error messages for included files no longer display the file path twice
+- Resolved lexer errors (`token recognition error at: '#'`) when parsing included files
+
+### Changed
+- Unused include warnings now correctly appear when no symbols from an included file are actually used
+
 ## [1.2.1] - 2026-01-25
 ### Changed
 - Added angle bracket syntax support: `#include <filename.gpc>`

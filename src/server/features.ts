@@ -13,6 +13,9 @@ import {
 } from "vscode-languageserver";
 import { Parser } from "./parser/parser";
 import { SourceMapping } from "./preprocessor";
+import { WorkspaceIndex } from "./workspaceIndex";
+import * as path from "path";
+import { fileURLToPath } from "url";
 
 /** Context for include-aware language features */
 export interface IncludeContext {
@@ -174,6 +177,53 @@ export class LanguageFeatures {
     return references;
   }
 
+  /**
+   * Find all references to a symbol across included files
+   */
+  public static getReferencesWithIncludes(
+    context: IncludeContext,
+    position: Position,
+    includeDeclaration: boolean = true
+  ): Location[] {
+    const word = this.getWordAtPosition(context.originalText, position);
+    if (!word) {
+      return [];
+    }
+
+    const references: Location[] = [];
+    const processedLines = context.processedText.split("\n");
+
+    // Find all occurrences in preprocessed text (includes expanded)
+    for (let lineIndex = 0; lineIndex < processedLines.length; lineIndex++) {
+      const line = processedLines[lineIndex];
+      let charIndex = 0;
+
+      while ((charIndex = line.indexOf(word, charIndex)) !== -1) {
+        // Make sure it's a whole word
+        const before = charIndex > 0 ? line[charIndex - 1] : " ";
+        const after = charIndex + word.length < line.length ? line[charIndex + word.length] : " ";
+
+        if (!/[a-zA-Z0-9_]/.test(before) && !/[a-zA-Z0-9_]/.test(after)) {
+          // Map back to original file using source map
+          const mapping = context.sourceMap.find((m) => m.processedLine === lineIndex);
+          if (mapping) {
+            references.push({
+              uri: this.pathToUri(mapping.originalFile),
+              range: {
+                start: { line: mapping.originalLine, character: charIndex },
+                end: { line: mapping.originalLine, character: charIndex + word.length },
+              },
+            });
+          }
+        }
+
+        charIndex += word.length;
+      }
+    }
+
+    return references;
+  }
+
   public static getDocumentSymbols(input: string): DocumentSymbol[] {
     const visitor = Parser.getVisitor(input);
     const symbols: DocumentSymbol[] = [];
@@ -247,39 +297,122 @@ export class LanguageFeatures {
   public static getCodeActions(
     input: string,
     range: any,
-    diagnostics: any[]
+    diagnostics: any[],
+    includeContext?: IncludeContext,
+    workspaceIndex?: WorkspaceIndex
   ): any[] {
     const actions: any[] = [];
 
+    // Use preprocessed text for symbol lookup if available
+    const text = includeContext ? includeContext.processedText : input;
+    const visitor = Parser.getVisitor(text);
+
     for (const diagnostic of diagnostics) {
-      // Quick fix for undefined functions - suggest available functions
+      // Quick fix for undefined functions/variables - suggest available symbols
       if (diagnostic.message.includes("is not defined")) {
-        const functionName = diagnostic.message.match(/'([^']+)'/)?.[1];
-        if (functionName) {
-          const visitor = Parser.getVisitor(input);
-          const suggestions = Array.from(visitor.CFunctions.keys())
-            .filter((name) =>
-              name
-                .toLowerCase()
-                .includes(functionName.toLowerCase().substring(0, 3))
-            )
-            .slice(0, 5);
+        const symbolName = diagnostic.message.match(/'([^']+)'/)?.[1];
+        if (symbolName) {
+          const searchPrefix = symbolName.toLowerCase().substring(0, 3);
+
+          // Combine built-in and user-defined functions for suggestions
+          const functionSuggestions: Array<{ name: string; sourceFile?: string; isBuiltIn: boolean }> = [];
+
+          // Add built-in functions
+          for (const [name, func] of visitor.CFunctions.entries()) {
+            if (name.toLowerCase().includes(searchPrefix)) {
+              functionSuggestions.push({ name, isBuiltIn: true });
+            }
+          }
+
+          // Add user-defined functions (including from includes)
+          for (const [name, func] of visitor.Functions.entries()) {
+            if (name.toLowerCase().includes(searchPrefix)) {
+              functionSuggestions.push({ name, sourceFile: func.sourceFile, isBuiltIn: false });
+            }
+          }
+
+          // Add variable suggestions for variable errors
+          if (diagnostic.message.includes("Variable")) {
+            for (const [name, variable] of visitor.Variables.entries()) {
+              if (name.toLowerCase().includes(searchPrefix)) {
+                functionSuggestions.push({ name, sourceFile: variable.sourceFile, isBuiltIn: false });
+              }
+            }
+          }
+
+          // Limit to 5 suggestions
+          const suggestions = functionSuggestions.slice(0, 5);
 
           for (const suggestion of suggestions) {
+            let title = `Did you mean '${suggestion.name}'?`;
+
+            // Show source file for functions from includes
+            if (!suggestion.isBuiltIn && suggestion.sourceFile && includeContext) {
+              const fileName = path.basename(suggestion.sourceFile);
+              const mainFile = includeContext.mainUri.split("/").pop() || "";
+              if (fileName !== mainFile) {
+                title = `Did you mean '${suggestion.name}' from ${fileName}?`;
+              }
+            }
+
             actions.push({
-              title: `Did you mean '${suggestion}'?`,
+              title,
               kind: "quickfix",
               edit: {
                 changes: {
                   [range.uri]: [
                     {
                       range: diagnostic.range,
-                      newText: suggestion,
+                      newText: suggestion.name,
                     },
                   ],
                 },
               },
             });
+          }
+
+          // Search workspace index for exact match to suggest adding #include
+          if (workspaceIndex && includeContext) {
+            const workspaceSymbols = workspaceIndex.findSymbol(symbolName);
+            const currentFilePath = fileURLToPath(includeContext.mainUri);
+
+            for (const symbol of workspaceSymbols) {
+              // Skip if the symbol is in the current file
+              if (symbol.filePath === currentFilePath) {
+                continue;
+              }
+
+              // Calculate relative path from current file to the symbol's file
+              const relativePath = workspaceIndex.getRelativePath(symbol.filePath, currentFilePath);
+
+              // Find the first line to insert the #include (after any existing includes or at top)
+              const lines = input.split("\n");
+              let insertLine = 0;
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim().startsWith("#include")) {
+                  insertLine = i + 1;
+                }
+              }
+
+              actions.push({
+                title: `Add #include "${relativePath}"`,
+                kind: "quickfix",
+                edit: {
+                  changes: {
+                    [range.uri]: [
+                      {
+                        range: {
+                          start: { line: insertLine, character: 0 },
+                          end: { line: insertLine, character: 0 },
+                        },
+                        newText: `#include "${relativePath}"\n`,
+                      },
+                    ],
+                  },
+                },
+                diagnostics: [diagnostic],
+              });
+            }
           }
         }
       }

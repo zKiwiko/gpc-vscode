@@ -17,6 +17,7 @@ export interface Variable {
   name: string;
   const: boolean;
   used: boolean;
+  sourceFile?: string;
 }
 
 export interface Function {
@@ -24,6 +25,7 @@ export interface Function {
   parameters: string[] | undefined;
   description?: string;
   used: boolean;
+  sourceFile?: string;
 }
 
 export class Visitor
@@ -378,6 +380,11 @@ export class Visitor
       const func =
         this.Functions.get(functionName) || this.CFunctions.get(functionName);
 
+      // Mark function as used
+      if (func) {
+        func.used = true;
+      }
+
       const expectedParams = func?.parameters || [];
       const actualParams = ctx.expression().map((e) => e.text);
 
@@ -386,6 +393,24 @@ export class Visitor
           ctx,
           `Function '${functionName}' expects ${expectedParams.length} parameters, but got ${actualParams.length}.`
         );
+      }
+
+      // Check if this is a combo-related function call (combo_run, combo_stop, combo_restart, combo_running)
+      // and mark the combo as used if the argument is a combo name
+      if (
+        functionName === "combo_run" ||
+        functionName === "combo_stop" ||
+        functionName === "combo_restart" ||
+        functionName === "combo_running"
+      ) {
+        const args = ctx.expression();
+        if (args.length > 0) {
+          const comboArg = args[0].text;
+          const combo = this.Combos.get(comboArg);
+          if (combo) {
+            combo.used = true;
+          }
+        }
       }
     }
 
