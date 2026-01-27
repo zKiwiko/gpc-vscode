@@ -101,13 +101,18 @@
     },
     {
         "name": "adt_off",
-        "parameters": [],
-        "description": "Turns off PS5 adaptive triggers for both L2 and R2"
+        "parameters": ["trigger"],
+        "description": "Turns off PS5 adaptive trigger for the specified trigger (PS5_R2 or PS5_L2)"
     },
     {
         "name": "adt_cmp",
-        "parameters": ["trigger"],
-        "description": "Compares PS5 adaptive trigger state"
+        "parameters": ["trigger", "address"],
+        "description": "Compares the PS5 adaptive trigger feedback data with predefined data at the given address. Returns TRUE if they match."
+    },
+    {
+        "name": "adt_setx",
+        "parameters": ["trigger", "address"],
+        "description": "Sets PS5 adaptive trigger values using a predefined data array at the given address"
     },
     {
         "name": "addr",
@@ -176,8 +181,8 @@
     },
     {
         "name": "get_modifiers",
-        "parameters": [],
-        "description": "Gets keyboard modifier keys state"
+        "parameters": ["bit"],
+        "description": "Gets keyboard modifier keys state. If bit is provided, checks if that specific modifier is pressed."
     },
     {
         "name": "get_rtime",

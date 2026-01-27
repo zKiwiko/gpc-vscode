@@ -73,6 +73,10 @@ class Server {
   private workspaceIndex: WorkspaceIndex = new WorkspaceIndex();
   /** Workspace root path */
   private workspaceRoot: string | null = null;
+  /** Debounce timers for document validation */
+  private validationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Debounce delay in milliseconds */
+  private readonly VALIDATION_DELAY = 300;
 
   constructor() {
     try {
@@ -164,41 +168,65 @@ class Server {
         });
         // Clean up preprocess cache
         this.preprocessCache.delete(change.document.uri);
+        // Cancel any pending validation timer
+        const timer = this.validationTimers.get(change.document.uri);
+        if (timer) {
+          clearTimeout(timer);
+          this.validationTimers.delete(change.document.uri);
+        }
       });
 
-      this.documents.onDidChangeContent(async (change) => {
-        const text = change.document.getText();
+      this.documents.onDidChangeContent((change) => {
         const uri = change.document.uri;
 
-        // Validate the changed document (async to avoid blocking LSP thread)
-        await this.validateAndSendDiagnostics(uri, text);
+        // Cancel any pending validation for this document
+        const existingTimer = this.validationTimers.get(uri);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+        }
 
-        // If this file is included by other open documents, re-validate them
-        try {
-          const filePath = fileURLToPath(uri);
-          const currentFileName = path.basename(filePath);
-          for (const doc of this.documents.all()) {
-            if (doc.uri === uri) {
-              continue; // Skip self
-            }
+        // Debounce validation to avoid reprocessing on every keystroke
+        const timer = setTimeout(async () => {
+          this.validationTimers.delete(uri);
+          const document = this.documents.get(uri);
+          if (!document) {
+            return;
+          }
 
-            const cached = this.preprocessCache.get(doc.uri);
-            if (cached) {
-              // Check if any source mapping references this file
-              const includesThisFile = cached.result.sourceMap.some(
-                m => m.originalFile === filePath ||
-                     path.basename(m.originalFile) === currentFileName
-              );
-              if (includesThisFile) {
-                await this.revalidateDocument(doc);
+          const text = document.getText();
+
+          // Validate the changed document
+          await this.validateAndSendDiagnostics(uri, text);
+
+          // If this file is included by other open documents, re-validate them
+          try {
+            const filePath = fileURLToPath(uri);
+            const currentFileName = path.basename(filePath);
+            for (const doc of this.documents.all()) {
+              if (doc.uri === uri) {
+                continue; // Skip self
+              }
+
+              const cached = this.preprocessCache.get(doc.uri);
+              if (cached) {
+                // Check if any source mapping references this file
+                const includesThisFile = cached.result.sourceMap.some(
+                  m => m.originalFile === filePath ||
+                       path.basename(m.originalFile) === currentFileName
+                );
+                if (includesThisFile) {
+                  await this.revalidateDocument(doc);
+                }
               }
             }
+          } catch (error) {
+            this.connection.console.error(
+              `Error checking dependent documents for ${uri}: ${error}`
+            );
           }
-        } catch (error) {
-          this.connection.console.error(
-            `Error checking dependent documents for ${uri}: ${error}`
-          );
-        }
+        }, this.VALIDATION_DELAY);
+
+        this.validationTimers.set(uri, timer);
       });
 
       // Handle completion requests
