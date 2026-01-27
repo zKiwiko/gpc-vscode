@@ -2,7 +2,7 @@
   "name": "gpc-vscode",
   "displayName": "GPC Language Tools",
   "description": "GPC Language Tools for VSCode",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "publisher": "zkiwiko",
   "license": "GPL-3.0-only",
   "icon": "images/cronus-blue.png",
