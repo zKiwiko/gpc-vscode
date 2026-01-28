@@ -258,15 +258,6 @@ export class gpc_grammarParser extends Parser {
 				break;
 			case gpc_grammarParser.T__27:
 			case gpc_grammarParser.T__28:
-			// Extended types: int8, int16, int32, uint8, uint16, uint32, string, image
-			case gpc_grammarParser.T__59:
-			case gpc_grammarParser.T__60:
-			case gpc_grammarParser.T__61:
-			case gpc_grammarParser.T__62:
-			case gpc_grammarParser.T__63:
-			case gpc_grammarParser.T__64:
-			case gpc_grammarParser.T__65:
-			case gpc_grammarParser.T__66:
 				this.enterOuterAlt(_localctx, 2);
 				{
 				this.state = 85;
@@ -1575,8 +1566,7 @@ export class gpc_grammarParser extends Parser {
 			{
 			this.state = 344;
 			_la = this._input.LA(1);
-			// Modified to accept extended types: int8, int16, int32, uint8, uint16, uint32, string, image
-			if (!(_la === gpc_grammarParser.T__27 || _la === gpc_grammarParser.T__28 || ((((_la - 60)) & ~0x1F) === 0 && ((1 << (_la - 60)) & ((1 << (gpc_grammarParser.T__59 - 60)) | (1 << (gpc_grammarParser.T__60 - 60)) | (1 << (gpc_grammarParser.T__61 - 60)) | (1 << (gpc_grammarParser.T__62 - 60)) | (1 << (gpc_grammarParser.T__63 - 60)) | (1 << (gpc_grammarParser.T__64 - 60)) | (1 << (gpc_grammarParser.T__65 - 60)) | (1 << (gpc_grammarParser.T__66 - 60)))) !== 0))) {
+			if (!(_la === gpc_grammarParser.T__27 || _la === gpc_grammarParser.T__28)) {
 			this._errHandler.recoverInline(this);
 			} else {
 				if (this._input.LA(1) === Token.EOF) {
@@ -1682,26 +1672,7 @@ export class gpc_grammarParser extends Parser {
 		try {
 			this.state = 399;
 			this._errHandler.sync(this);
-			// Custom prediction for ps5adt type (tokenized as ID)
-			// Check if token after 'const' is 'ps5adt' ID
-			let prediction: number;
-			const constToken = this._input.LT(1);
-			const typeToken = this._input.LT(2);
-			const isPs5adt = typeToken && typeToken.type === gpc_grammarParser.ID && typeToken.text === 'ps5adt';
-			if (isPs5adt) {
-				// Look at token after ID (position 4: const ps5adt ID ???)
-				const afterId = this._input.LT(4);
-				if (afterId && afterId.type === gpc_grammarParser.T__32) {
-					prediction = 1; // '[]' syntax
-				} else if (afterId && afterId.type === gpc_grammarParser.T__29) {
-					prediction = 2; // '[' ']' syntax
-				} else {
-					prediction = 3; // '=' expression syntax
-				}
-			} else {
-				prediction = this.interpreter.adaptivePredict(this._input, 36, this._ctx);
-			}
-			switch ( prediction ) {
+			switch ( this.interpreter.adaptivePredict(this._input, 36, this._ctx) ) {
 			case 1:
 				this.enterOuterAlt(_localctx, 1);
 				{
@@ -2445,9 +2416,7 @@ export class gpc_grammarParser extends Parser {
 			{
 			this.state = 508;
 			_la = this._input.LA(1);
-			// Modified to also accept 'ps5adt' as a type (tokenized as ID)
-			const isPs5adt = _la === gpc_grammarParser.ID && this._input.LT(1)?.text === 'ps5adt';
-			if (!(_la === gpc_grammarParser.T__27 || isPs5adt || ((((_la - 60)) & ~0x1F) === 0 && ((1 << (_la - 60)) & ((1 << (gpc_grammarParser.T__59 - 60)) | (1 << (gpc_grammarParser.T__60 - 60)) | (1 << (gpc_grammarParser.T__61 - 60)) | (1 << (gpc_grammarParser.T__62 - 60)) | (1 << (gpc_grammarParser.T__63 - 60)) | (1 << (gpc_grammarParser.T__64 - 60)) | (1 << (gpc_grammarParser.T__65 - 60)) | (1 << (gpc_grammarParser.T__66 - 60)))) !== 0))) {
+			if (!(_la === gpc_grammarParser.T__27 || ((((_la - 60)) & ~0x1F) === 0 && ((1 << (_la - 60)) & ((1 << (gpc_grammarParser.T__59 - 60)) | (1 << (gpc_grammarParser.T__60 - 60)) | (1 << (gpc_grammarParser.T__61 - 60)) | (1 << (gpc_grammarParser.T__62 - 60)) | (1 << (gpc_grammarParser.T__63 - 60)) | (1 << (gpc_grammarParser.T__64 - 60)) | (1 << (gpc_grammarParser.T__65 - 60)) | (1 << (gpc_grammarParser.T__66 - 60)))) !== 0))) {
 			this._errHandler.recoverInline(this);
 			} else {
 				if (this._input.LA(1) === Token.EOF) {
