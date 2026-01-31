@@ -29,9 +29,7 @@ export class SemanticTokensProvider {
   /**
    * Get semantic tokens for a document
    */
-  public static getSemanticTokens(
-    context: IncludeContext
-  ): { data: number[] } {
+  public static getSemanticTokens(context: IncludeContext): { data: number[] } {
     const builder = new SemanticTokensBuilder();
     const tokens: Array<{
       line: number;
@@ -55,7 +53,7 @@ export class SemanticTokensProvider {
     // Find symbols declared in included files by checking source map
     for (let i = 0; i < processedLines.length; i++) {
       const line = processedLines[i];
-      const mapping = context.sourceMap.find(m => m.processedLine === i);
+      const mapping = context.sourceMap.find((m) => m.processedLine === i);
 
       if (mapping && mapping.originalFile !== mainFilePath) {
         // This line is from an included file - check for declarations
@@ -67,7 +65,9 @@ export class SemanticTokensProvider {
         }
 
         // Check for variable declarations
-        const varMatch = line.match(/(?:int|int8|int16|int32|uint8|uint16|uint32|define|const)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+        const varMatch = line.match(
+          /(?:int|int8|int16|int32|uint8|uint16|uint32|ps5adt|define|const)\s+([a-zA-Z_][a-zA-Z0-9_]*)/,
+        );
         if (varMatch) {
           symbolsFromIncludes.add(varMatch[1]);
         }
@@ -94,11 +94,38 @@ export class SemanticTokensProvider {
 
         // Skip keywords and types
         const keywords = new Set([
-          "if", "else", "while", "for", "function", "return", "break",
-          "continue", "switch", "case", "default", "do", "combo", "init",
-          "main", "enum", "define", "const", "TRUE", "FALSE", "use",
-          "int", "int8", "int16", "int32", "uint8", "uint16", "uint32",
-          "string", "data", "image"
+          "if",
+          "else",
+          "while",
+          "for",
+          "function",
+          "return",
+          "break",
+          "continue",
+          "switch",
+          "case",
+          "default",
+          "do",
+          "combo",
+          "init",
+          "main",
+          "enum",
+          "define",
+          "const",
+          "TRUE",
+          "FALSE",
+          "use",
+          "int",
+          "int8",
+          "int16",
+          "int32",
+          "uint8",
+          "uint16",
+          "uint32",
+          "ps5adt",
+          "string",
+          "data",
+          "image",
         ]);
 
         if (keywords.has(name)) {
@@ -114,36 +141,36 @@ export class SemanticTokensProvider {
           if (symbolsFromIncludes.has(name)) {
             // Use modification flag to indicate it's from an include
             // This is a hack, but LSP doesn't support custom modifiers easily
-            modifiers |= (1 << TOKEN_MODIFIERS.indexOf("modification"));
+            modifiers |= 1 << TOKEN_MODIFIERS.indexOf("modification");
           }
         }
         // Check if it's a built-in function
         else if (visitor.CFunctions.has(name)) {
           tokenType = TOKEN_TYPES.indexOf("function");
-          modifiers |= (1 << TOKEN_MODIFIERS.indexOf("defaultLibrary"));
+          modifiers |= 1 << TOKEN_MODIFIERS.indexOf("defaultLibrary");
         }
         // Check if it's a user variable
         else if (visitor.Variables.has(name)) {
           const variable = visitor.Variables.get(name)!;
           tokenType = TOKEN_TYPES.indexOf("variable");
           if (variable.const) {
-            modifiers |= (1 << TOKEN_MODIFIERS.indexOf("readonly"));
+            modifiers |= 1 << TOKEN_MODIFIERS.indexOf("readonly");
           }
           if (symbolsFromIncludes.has(name)) {
-            modifiers |= (1 << TOKEN_MODIFIERS.indexOf("modification"));
+            modifiers |= 1 << TOKEN_MODIFIERS.indexOf("modification");
           }
         }
         // Check if it's a built-in constant
         else if (visitor.Constants.has(name)) {
           tokenType = TOKEN_TYPES.indexOf("property");
-          modifiers |= (1 << TOKEN_MODIFIERS.indexOf("readonly"));
-          modifiers |= (1 << TOKEN_MODIFIERS.indexOf("defaultLibrary"));
+          modifiers |= 1 << TOKEN_MODIFIERS.indexOf("readonly");
+          modifiers |= 1 << TOKEN_MODIFIERS.indexOf("defaultLibrary");
         }
         // Check if it's a combo
         else if (visitor.Combos.has(name)) {
           tokenType = TOKEN_TYPES.indexOf("type");
           if (symbolsFromIncludes.has(name)) {
-            modifiers |= (1 << TOKEN_MODIFIERS.indexOf("modification"));
+            modifiers |= 1 << TOKEN_MODIFIERS.indexOf("modification");
           }
         }
 
@@ -180,7 +207,7 @@ export class SemanticTokensProvider {
         deltaChar,
         token.length,
         token.tokenType,
-        token.tokenModifiers
+        token.tokenModifiers,
       );
 
       prevLine = token.line;

@@ -850,7 +850,7 @@ export class LanguageFeatures {
       // Look for variable declarations
       const varMatch = line.match(
         new RegExp(
-          `(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${word}\\b`,
+          `(int|int8|int16|int32|uint8|uint16|uint32|ps5adt|define|const)\\s+${word}\\b`,
         ),
       );
       if (varMatch) {
@@ -1018,7 +1018,7 @@ export class LanguageFeatures {
       if (symbolType === "variable") {
         found = !!line.match(
           new RegExp(
-            `(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${symbolName}\\b`,
+            `(int|int8|int16|int32|uint8|uint16|uint32|ps5adt|define|const)\\s+${symbolName}\\b`,
           ),
         );
       } else if (symbolType === "function") {

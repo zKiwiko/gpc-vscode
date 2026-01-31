@@ -105,6 +105,15 @@ export class Snippets {
     });
 
     snippets.push({
+      label: "ps5adt~",
+      kind: CompletionItemKind.Snippet,
+      detail: "PS5 ADT array declaration",
+      documentation: "Declares a PS5 ADT array",
+      insertText: "const ps5adt ${1:name}[] = { $2 };\n$0",
+      insertTextFormat: 2, // Snippet format
+    });
+
+    snippets.push({
       label: "int8~~",
       kind: CompletionItemKind.Snippet,
       detail: "8-bit integer variable declaration",
@@ -137,6 +146,15 @@ export class Snippets {
       detail: "16-bit unsigned integer variable declaration",
       documentation: "Declares a 16-bit unsigned integer variable",
       insertText: "const uint16 ${1:name}[][] = { { $2 } };\n$0",
+      insertTextFormat: 2, // Snippet format
+    });
+
+    snippets.push({
+      label: "ps5adt~~",
+      kind: CompletionItemKind.Snippet,
+      detail: "PS5 ADT 2D array declaration",
+      documentation: "Declares a PS5 ADT 2D array",
+      insertText: "const ps5adt ${1:name}[][] = { { $2 } };\n$0",
       insertTextFormat: 2, // Snippet format
     });
 

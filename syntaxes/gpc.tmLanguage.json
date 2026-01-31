@@ -28,7 +28,7 @@
 		  },
 		  {
 			"name": "storage.type.gpc",
-			"match": "\\b(int|int8|int16|int32|uint8|uint16|uint32|string|data|image)\\b"
+			"match": "\\b(int|int8|int16|int32|uint8|uint16|uint32|string|data|image|ps5adt)\\b"
 		  },
 		  {
 			"name": "constant.language.boolean.gpc",
