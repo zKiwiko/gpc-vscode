@@ -15,7 +15,7 @@ import { Parser } from "./parser/parser";
 import { SourceMapping } from "./preprocessor";
 import { WorkspaceIndex } from "./workspaceIndex";
 import * as path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 /** Context for include-aware language features */
 export interface IncludeContext {
@@ -44,8 +44,8 @@ export class LanguageFeatures {
       const type = visitor.Constants.has(word)
         ? "Built-in Constant"
         : variable.const
-        ? "Constant"
-        : "Variable";
+          ? "Constant"
+          : "Variable";
 
       return {
         contents: {
@@ -135,7 +135,7 @@ export class LanguageFeatures {
   public static getReferences(
     input: string,
     position: Position,
-    includeDeclaration: boolean = true
+    includeDeclaration: boolean = true,
   ): Location[] {
     const visitor = Parser.getVisitor(input);
     const word = this.getWordAtPosition(input, position);
@@ -183,7 +183,7 @@ export class LanguageFeatures {
   public static getReferencesWithIncludes(
     context: IncludeContext,
     position: Position,
-    includeDeclaration: boolean = true
+    includeDeclaration: boolean = true,
   ): Location[] {
     const word = this.getWordAtPosition(context.originalText, position);
     if (!word) {
@@ -201,17 +201,25 @@ export class LanguageFeatures {
       while ((charIndex = line.indexOf(word, charIndex)) !== -1) {
         // Make sure it's a whole word
         const before = charIndex > 0 ? line[charIndex - 1] : " ";
-        const after = charIndex + word.length < line.length ? line[charIndex + word.length] : " ";
+        const after =
+          charIndex + word.length < line.length
+            ? line[charIndex + word.length]
+            : " ";
 
         if (!/[a-zA-Z0-9_]/.test(before) && !/[a-zA-Z0-9_]/.test(after)) {
           // Map back to original file using source map
-          const mapping = context.sourceMap.find((m) => m.processedLine === lineIndex);
+          const mapping = context.sourceMap.find(
+            (m) => m.processedLine === lineIndex,
+          );
           if (mapping) {
             references.push({
               uri: this.pathToUri(mapping.originalFile),
               range: {
                 start: { line: mapping.originalLine, character: charIndex },
-                end: { line: mapping.originalLine, character: charIndex + word.length },
+                end: {
+                  line: mapping.originalLine,
+                  character: charIndex + word.length,
+                },
               },
             });
           }
@@ -299,7 +307,7 @@ export class LanguageFeatures {
     range: any,
     diagnostics: any[],
     includeContext?: IncludeContext,
-    workspaceIndex?: WorkspaceIndex
+    workspaceIndex?: WorkspaceIndex,
   ): any[] {
     const actions: any[] = [];
 
@@ -315,7 +323,11 @@ export class LanguageFeatures {
           const searchPrefix = symbolName.toLowerCase().substring(0, 3);
 
           // Combine built-in and user-defined functions for suggestions
-          const functionSuggestions: Array<{ name: string; sourceFile?: string; isBuiltIn: boolean }> = [];
+          const functionSuggestions: Array<{
+            name: string;
+            sourceFile?: string;
+            isBuiltIn: boolean;
+          }> = [];
 
           // Add built-in functions
           for (const [name, func] of visitor.CFunctions.entries()) {
@@ -327,7 +339,11 @@ export class LanguageFeatures {
           // Add user-defined functions (including from includes)
           for (const [name, func] of visitor.Functions.entries()) {
             if (name.toLowerCase().includes(searchPrefix)) {
-              functionSuggestions.push({ name, sourceFile: func.sourceFile, isBuiltIn: false });
+              functionSuggestions.push({
+                name,
+                sourceFile: func.sourceFile,
+                isBuiltIn: false,
+              });
             }
           }
 
@@ -335,7 +351,11 @@ export class LanguageFeatures {
           if (diagnostic.message.includes("Variable")) {
             for (const [name, variable] of visitor.Variables.entries()) {
               if (name.toLowerCase().includes(searchPrefix)) {
-                functionSuggestions.push({ name, sourceFile: variable.sourceFile, isBuiltIn: false });
+                functionSuggestions.push({
+                  name,
+                  sourceFile: variable.sourceFile,
+                  isBuiltIn: false,
+                });
               }
             }
           }
@@ -347,7 +367,11 @@ export class LanguageFeatures {
             let title = `Did you mean '${suggestion.name}'?`;
 
             // Show source file for functions from includes
-            if (!suggestion.isBuiltIn && suggestion.sourceFile && includeContext) {
+            if (
+              !suggestion.isBuiltIn &&
+              suggestion.sourceFile &&
+              includeContext
+            ) {
               const fileName = path.basename(suggestion.sourceFile);
               const mainFile = includeContext.mainUri.split("/").pop() || "";
               if (fileName !== mainFile) {
@@ -383,7 +407,10 @@ export class LanguageFeatures {
               }
 
               // Calculate relative path from current file to the symbol's file
-              const relativePath = workspaceIndex.getRelativePath(symbol.filePath, currentFilePath);
+              const relativePath = workspaceIndex.getRelativePath(
+                symbol.filePath,
+                currentFilePath,
+              );
 
               // Find the first line to insert the #include (after any existing includes or at top)
               const lines = input.split("\n");
@@ -438,7 +465,7 @@ export class LanguageFeatures {
 
   public static getSignatureHelp(
     input: string,
-    position: Position
+    position: Position,
   ): SignatureHelp | null {
     const visitor = Parser.getVisitor(input);
     const lines = input.split("\n");
@@ -482,7 +509,7 @@ export class LanguageFeatures {
 
     const functionName = currentLine.substring(
       functionNameStart,
-      functionStart + 1
+      functionStart + 1,
     );
 
     // Find the function definition
@@ -508,7 +535,7 @@ export class LanguageFeatures {
       (param) => ({
         label: param,
         documentation: `Parameter: ${param}`,
-      })
+      }),
     );
 
     const signature: SignatureInformation = {
@@ -527,7 +554,7 @@ export class LanguageFeatures {
   public static getInlayHints(
     input: string,
     range: any,
-    config?: { inlayHintsEnabled: boolean; parameterNamesEnabled: boolean }
+    config?: { inlayHintsEnabled: boolean; parameterNamesEnabled: boolean },
   ): InlayHint[] {
     const visitor = Parser.getVisitor(input);
     const hints: InlayHint[] = [];
@@ -693,7 +720,7 @@ export class LanguageFeatures {
 
   private static getWordAtPosition(
     input: string,
-    position: Position
+    position: Position,
   ): string | null {
     const lines = input.split("\n");
     if (position.line >= lines.length) {
@@ -732,7 +759,7 @@ export class LanguageFeatures {
    */
   public static getHoverInfoWithIncludes(
     context: IncludeContext,
-    position: Position
+    position: Position,
   ): Hover | null {
     // Get the word from the original text at cursor position
     const word = this.getWordAtPosition(context.originalText, position);
@@ -749,8 +776,8 @@ export class LanguageFeatures {
       const type = visitor.Constants.has(word)
         ? "Built-in Constant"
         : variable.const
-        ? "Constant"
-        : "Variable";
+          ? "Constant"
+          : "Variable";
 
       // Check if it's from an included file
       const sourceInfo = this.findSymbolSource(word, context, "variable");
@@ -808,7 +835,7 @@ export class LanguageFeatures {
    */
   public static getDefinitionWithIncludes(
     context: IncludeContext,
-    position: Position
+    position: Position,
   ): Location[] {
     const word = this.getWordAtPosition(context.originalText, position);
     if (!word) {
@@ -821,20 +848,31 @@ export class LanguageFeatures {
       const line = lines[lineIndex];
 
       // Look for variable declarations
-      const varMatch = line.match(new RegExp(`(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${word}\\b`));
+      const varMatch = line.match(
+        new RegExp(
+          `(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${word}\\b`,
+        ),
+      );
       if (varMatch) {
         const charIndex = line.indexOf(word, varMatch.index);
         if (charIndex !== -1) {
           // Map back to original file
-          const mapping = context.sourceMap.find(m => m.processedLine === lineIndex);
+          const mapping = context.sourceMap.find(
+            (m) => m.processedLine === lineIndex,
+          );
           if (mapping) {
-            return [{
-              uri: this.pathToUri(mapping.originalFile),
-              range: {
-                start: { line: mapping.originalLine, character: charIndex },
-                end: { line: mapping.originalLine, character: charIndex + word.length },
+            return [
+              {
+                uri: this.pathToUri(mapping.originalFile),
+                range: {
+                  start: { line: mapping.originalLine, character: charIndex },
+                  end: {
+                    line: mapping.originalLine,
+                    character: charIndex + word.length,
+                  },
+                },
               },
-            }];
+            ];
           }
         }
       }
@@ -844,15 +882,22 @@ export class LanguageFeatures {
         const charIndex = line.indexOf(word);
         if (charIndex !== -1) {
           // Map back to original file
-          const mapping = context.sourceMap.find(m => m.processedLine === lineIndex);
+          const mapping = context.sourceMap.find(
+            (m) => m.processedLine === lineIndex,
+          );
           if (mapping) {
-            return [{
-              uri: this.pathToUri(mapping.originalFile),
-              range: {
-                start: { line: mapping.originalLine, character: charIndex },
-                end: { line: mapping.originalLine, character: charIndex + word.length },
+            return [
+              {
+                uri: this.pathToUri(mapping.originalFile),
+                range: {
+                  start: { line: mapping.originalLine, character: charIndex },
+                  end: {
+                    line: mapping.originalLine,
+                    character: charIndex + word.length,
+                  },
+                },
               },
-            }];
+            ];
           }
         }
       }
@@ -866,7 +911,7 @@ export class LanguageFeatures {
    */
   public static getSignatureHelpWithIncludes(
     context: IncludeContext,
-    position: Position
+    position: Position,
   ): SignatureHelp | null {
     // Get visitor from preprocessed content (has all function signatures)
     const visitor = Parser.getVisitor(context.processedText);
@@ -912,10 +957,15 @@ export class LanguageFeatures {
     }
     functionNameStart++;
 
-    const functionName = currentLine.substring(functionNameStart, functionStart + 1);
+    const functionName = currentLine.substring(
+      functionNameStart,
+      functionStart + 1,
+    );
 
     // Find the function definition (from preprocessed content's visitor)
-    const func = visitor.Functions.get(functionName) || visitor.CFunctions.get(functionName);
+    const func =
+      visitor.Functions.get(functionName) ||
+      visitor.CFunctions.get(functionName);
     if (!func) {
       return null;
     }
@@ -935,7 +985,7 @@ export class LanguageFeatures {
       (param) => ({
         label: param,
         documentation: `Parameter: ${param}`,
-      })
+      }),
     );
 
     const signature: SignatureInformation = {
@@ -957,7 +1007,7 @@ export class LanguageFeatures {
   private static findSymbolSource(
     symbolName: string,
     context: IncludeContext,
-    symbolType: "variable" | "function"
+    symbolType: "variable" | "function",
   ): { file: string; line: number } | null {
     const lines = context.processedText.split("\n");
 
@@ -966,13 +1016,19 @@ export class LanguageFeatures {
       let found = false;
 
       if (symbolType === "variable") {
-        found = !!(line.match(new RegExp(`(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${symbolName}\\b`)));
+        found = !!line.match(
+          new RegExp(
+            `(int|int8|int16|int32|uint8|uint16|uint32|define|const)\\s+${symbolName}\\b`,
+          ),
+        );
       } else if (symbolType === "function") {
         found = line.includes(`function ${symbolName}`);
       }
 
       if (found) {
-        const mapping = context.sourceMap.find(m => m.processedLine === lineIndex);
+        const mapping = context.sourceMap.find(
+          (m) => m.processedLine === lineIndex,
+        );
         if (mapping) {
           return { file: mapping.originalFile, line: mapping.originalLine };
         }
@@ -994,12 +1050,7 @@ export class LanguageFeatures {
    * Convert a file path to a file:// URI
    */
   private static pathToUri(filePath: string): string {
-    // Handle Windows and Unix paths
-    if (filePath.startsWith("/")) {
-      return `file://${filePath}`;
-    } else if (/^[a-zA-Z]:/.test(filePath)) {
-      return `file:///${filePath.replace(/\\/g, "/")}`;
-    }
-    return `file://${filePath}`;
+    // Use Node.js built-in for proper cross-platform URI creation and encoding
+    return pathToFileURL(filePath).toString();
   }
 }

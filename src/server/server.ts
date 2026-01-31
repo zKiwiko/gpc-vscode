@@ -24,7 +24,11 @@ import { IncludeContext, LanguageFeatures } from "./features";
 import { Parser } from "./parser/parser";
 import { Preprocessor, PreprocessResult, SourceMapping } from "./preprocessor";
 import { WorkspaceIndex } from "./workspaceIndex";
-import { SemanticTokensProvider, TOKEN_TYPES, TOKEN_MODIFIERS } from "./semanticTokens";
+import {
+  SemanticTokensProvider,
+  TOKEN_TYPES,
+  TOKEN_MODIFIERS,
+} from "./semanticTokens";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
@@ -64,7 +68,7 @@ interface DocumentPreprocessInfo {
 class Server {
   private connection = createConnection(ProposedFeatures.all);
   private documents: TextDocuments<TextDocument> = new TextDocuments(
-    TextDocument
+    TextDocument,
   );
   private hasConfigurationCapability = false;
   /** Cache of preprocess results by document URI */
@@ -74,7 +78,8 @@ class Server {
   /** Workspace root path */
   private workspaceRoot: string | null = null;
   /** Debounce timers for document validation */
-  private validationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private validationTimers: Map<string, ReturnType<typeof setTimeout>> =
+    new Map();
   /** Debounce delay in milliseconds */
   private readonly VALIDATION_DELAY = 300;
 
@@ -98,15 +103,19 @@ class Server {
             this.workspaceRoot = fileURLToPath(params.workspaceFolders[0].uri);
             this.workspaceIndex.setWorkspaceRoot(this.workspaceRoot);
             // Index workspace in background (don't block initialization)
-            this.workspaceIndex.indexDirectory(this.workspaceRoot).catch((err) => {
-              console.error("Error indexing workspace:", err);
-            });
+            this.workspaceIndex
+              .indexDirectory(this.workspaceRoot)
+              .catch((err) => {
+                console.error("Error indexing workspace:", err);
+              });
           } else if (params.rootUri) {
             this.workspaceRoot = fileURLToPath(params.rootUri);
             this.workspaceIndex.setWorkspaceRoot(this.workspaceRoot);
-            this.workspaceIndex.indexDirectory(this.workspaceRoot).catch((err) => {
-              console.error("Error indexing workspace:", err);
-            });
+            this.workspaceIndex
+              .indexDirectory(this.workspaceRoot)
+              .catch((err) => {
+                console.error("Error indexing workspace:", err);
+              });
           }
 
           return {
@@ -115,8 +124,13 @@ class Server {
               completionProvider: {
                 resolveProvider: false,
                 triggerCharacters: [
-                  ..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_".split(""),
-                  '"', "'", '<', '/', // For #include path completion
+                  ..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_".split(
+                    "",
+                  ),
+                  '"',
+                  "'",
+                  "<",
+                  "/", // For #include path completion
                 ],
               },
               hoverProvider: true,
@@ -140,7 +154,7 @@ class Server {
               },
             },
           };
-        }
+        },
       );
 
       this.setupHandlers();
@@ -211,8 +225,9 @@ class Server {
               if (cached) {
                 // Check if any source mapping references this file
                 const includesThisFile = cached.result.sourceMap.some(
-                  m => m.originalFile === filePath ||
-                       path.basename(m.originalFile) === currentFileName
+                  (m) =>
+                    m.originalFile === filePath ||
+                    path.basename(m.originalFile) === currentFileName,
                 );
                 if (includesThisFile) {
                   await this.revalidateDocument(doc);
@@ -221,7 +236,7 @@ class Server {
             }
           } catch (error) {
             this.connection.console.error(
-              `Error checking dependent documents for ${uri}: ${error}`
+              `Error checking dependent documents for ${uri}: ${error}`,
             );
           }
         }, this.VALIDATION_DELAY);
@@ -232,17 +247,19 @@ class Server {
       // Handle completion requests
       this.connection.onCompletion(
         async (
-          textDocumentPosition: TextDocumentPositionParams
+          textDocumentPosition: TextDocumentPositionParams,
         ): Promise<CompletionItem[]> => {
           const document = this.documents.get(
-            textDocumentPosition.textDocument.uri
+            textDocumentPosition.textDocument.uri,
           );
           if (!document) {
             return [];
           }
 
           // Use preprocessed content to include symbols from included files
-          const cached = this.preprocessCache.get(textDocumentPosition.textDocument.uri);
+          const cached = this.preprocessCache.get(
+            textDocumentPosition.textDocument.uri,
+          );
           const text = cached ? cached.processedText : document.getText();
           const originalText = document.getText();
 
@@ -251,15 +268,15 @@ class Server {
               text,
               originalText,
               textDocumentPosition.position,
-              textDocumentPosition.textDocument.uri
+              textDocumentPosition.textDocument.uri,
             );
           } catch (error) {
             this.connection.console.error(
-              `Error providing completions: ${error}`
+              `Error providing completions: ${error}`,
             );
             return [];
           }
-        }
+        },
       );
 
       // Handle completion resolve requests
@@ -268,7 +285,7 @@ class Server {
           // for satisfying the LSP protocol, dont need
           // it since we provide all details upfront
           return item;
-        }
+        },
       );
 
       // Handle hover requests
@@ -289,9 +306,14 @@ class Server {
               mainUri: params.textDocument.uri,
             };
             try {
-              return LanguageFeatures.getHoverInfoWithIncludes(context, params.position);
+              return LanguageFeatures.getHoverInfoWithIncludes(
+                context,
+                params.position,
+              );
             } catch (error) {
-              this.connection.console.error(`Error providing hover info: ${error}`);
+              this.connection.console.error(
+                `Error providing hover info: ${error}`,
+              );
               return null;
             }
           }
@@ -302,11 +324,11 @@ class Server {
             return LanguageFeatures.getHoverInfo(text, params.position);
           } catch (error) {
             this.connection.console.error(
-              `Error providing hover info: ${error}`
+              `Error providing hover info: ${error}`,
             );
             return null;
           }
-        }
+        },
       );
 
       // Handle definition requests
@@ -326,9 +348,14 @@ class Server {
             mainUri: params.textDocument.uri,
           };
           try {
-            return LanguageFeatures.getDefinitionWithIncludes(context, params.position);
+            return LanguageFeatures.getDefinitionWithIncludes(
+              context,
+              params.position,
+            );
           } catch (error) {
-            this.connection.console.error(`Error providing definition: ${error}`);
+            this.connection.console.error(
+              `Error providing definition: ${error}`,
+            );
             return [];
           }
         }
@@ -338,7 +365,7 @@ class Server {
         try {
           const locations = LanguageFeatures.getDefinition(
             text,
-            params.position
+            params.position,
           );
           // Set the correct URI for each location
           return locations.map((loc) => ({
@@ -373,7 +400,7 @@ class Server {
             return LanguageFeatures.getReferencesWithIncludes(
               context,
               params.position,
-              params.context.includeDeclaration
+              params.context.includeDeclaration,
             );
           }
 
@@ -381,7 +408,7 @@ class Server {
           const locations = LanguageFeatures.getReferences(
             text,
             params.position,
-            params.context.includeDeclaration
+            params.context.includeDeclaration,
           );
           return locations.map((loc) => ({
             ...loc,
@@ -406,11 +433,11 @@ class Server {
             return LanguageFeatures.getDocumentSymbols(text);
           } catch (error) {
             this.connection.console.error(
-              `Error providing document symbols: ${error}`
+              `Error providing document symbols: ${error}`,
             );
             return [];
           }
-        }
+        },
       );
 
       // Handle signature help requests
@@ -431,9 +458,14 @@ class Server {
               mainUri: params.textDocument.uri,
             };
             try {
-              return LanguageFeatures.getSignatureHelpWithIncludes(context, params.position);
+              return LanguageFeatures.getSignatureHelpWithIncludes(
+                context,
+                params.position,
+              );
             } catch (error) {
-              this.connection.console.error(`Error providing signature help: ${error}`);
+              this.connection.console.error(
+                `Error providing signature help: ${error}`,
+              );
               return null;
             }
           }
@@ -444,11 +476,11 @@ class Server {
             return LanguageFeatures.getSignatureHelp(text, params.position);
           } catch (error) {
             this.connection.console.error(
-              `Error providing signature help: ${error}`
+              `Error providing signature help: ${error}`,
             );
             return null;
           }
-        }
+        },
       );
 
       // Handle code action requests
@@ -477,11 +509,11 @@ class Server {
             params.range,
             params.context.diagnostics,
             includeContext,
-            this.workspaceIndex
+            this.workspaceIndex,
           );
         } catch (error) {
           this.connection.console.error(
-            `Error providing code actions: ${error}`
+            `Error providing code actions: ${error}`,
           );
           return [];
         }
@@ -507,11 +539,11 @@ class Server {
             return LanguageFeatures.getInlayHints(text, params.range, config);
           } catch (error) {
             this.connection.console.error(
-              `Error providing inlay hints: ${error}`
+              `Error providing inlay hints: ${error}`,
             );
             return [];
           }
-        }
+        },
       );
 
       // Handle document link requests (Ctrl+click on #include)
@@ -527,7 +559,8 @@ class Server {
           const lines = text.split("\n");
 
           // Regex to match #include directives
-          const includeRegex = /^(\s*)#include\s+(?:["']([^"']+)["']|<([^>]+)>)/;
+          const includeRegex =
+            /^(\s*)#include\s+(?:["']([^"']+)["']|<([^>]+)>)/;
 
           try {
             const filePath = fileURLToPath(params.textDocument.uri);
@@ -557,12 +590,12 @@ class Server {
             }
           } catch (error) {
             this.connection.console.error(
-              `Error providing document links: ${error}`
+              `Error providing document links: ${error}`,
             );
           }
 
           return links;
-        }
+        },
       );
 
       // Handle semantic tokens requests
@@ -596,7 +629,7 @@ class Server {
           return SemanticTokensProvider.getSemanticTokens(context);
         } catch (error) {
           this.connection.console.error(
-            `Error providing semantic tokens: ${error}`
+            `Error providing semantic tokens: ${error}`,
           );
           return { data: [] };
         }
@@ -610,21 +643,36 @@ class Server {
    * Validate a document and send diagnostics
    * Shared logic for both document changes and revalidation
    */
-  private async validateAndSendDiagnostics(uri: string, text: string): Promise<void> {
+  private async validateAndSendDiagnostics(
+    uri: string,
+    text: string,
+  ): Promise<void> {
     try {
       Parser.clearCache();
       const filePath = fileURLToPath(uri);
       const baseDir = path.dirname(filePath);
-      const preprocessResult = await Preprocessor.process(text, baseDir, filePath);
+      const preprocessResult = await Preprocessor.process(
+        text,
+        baseDir,
+        filePath,
+      );
 
       this.preprocessCache.set(uri, {
         result: preprocessResult,
         processedText: preprocessResult.content,
       });
 
-      const parseErrors = ErrorCollector.collectErrors(preprocessResult.content);
+      const parseErrors = ErrorCollector.collectErrors(
+        preprocessResult.content,
+      );
       const mappedResults = parseErrors
-        .map((error) => Preprocessor.mapDiagnostic(error, preprocessResult.sourceMap, filePath))
+        .map((error) =>
+          Preprocessor.mapDiagnostic(
+            error,
+            preprocessResult.sourceMap,
+            filePath,
+          ),
+        )
         .filter((mapped) => mapped !== null);
 
       const mainFileErrors: typeof parseErrors = [];
@@ -636,16 +684,28 @@ class Server {
         } else {
           const includedFilePath = mapped!.file;
           const includedFileName = path.basename(includedFilePath);
-          const fileUri = `file://${includedFilePath}`;
+          const fileUri = pathToFileURL(includedFilePath).toString();
           const errorWithContext = {
             ...mapped!.diagnostic,
-            message: `[${includedFileName}](${fileUri}) ${mapped!.diagnostic.message}`,
+            message: `In ${includedFileName}: ${mapped!.diagnostic.message}`,
+            relatedInformation: [
+              {
+                location: {
+                  uri: fileUri,
+                  range: mapped!.diagnostic.range,
+                },
+                message: `Error occurs here in ${includedFileName}`,
+              },
+            ],
           };
           // Map the error to the include line for THIS specific file
-          const processedLines = preprocessResult.content.split('\n');
+          const processedLines = preprocessResult.content.split("\n");
           const includeLineMapping = preprocessResult.sourceMap.find(
-            m => m.originalFile === filePath &&
-                 processedLines[m.processedLine]?.includes(`[begin include: ${includedFileName}]`)
+            (m) =>
+              m.originalFile === filePath &&
+              processedLines[m.processedLine]?.includes(
+                `[begin include: ${includedFileName}]`,
+              ),
           );
           if (includeLineMapping) {
             errorWithContext.range = {
@@ -658,22 +718,29 @@ class Server {
       }
 
       const mainFilePreprocessErrors = preprocessResult.errors.filter(
-        (e) => !e.message.includes("in included file")
+        (e) => !e.message.includes("in included file"),
       );
 
       // Check for unused includes
       const unusedIncludeWarnings = await this.detectUnusedIncludes(
         text,
         preprocessResult,
-        filePath
+        filePath,
       );
 
       this.connection.sendDiagnostics({
         uri: uri,
-        diagnostics: [...mainFilePreprocessErrors, ...mainFileErrors, ...includedFileErrors, ...unusedIncludeWarnings],
+        diagnostics: [
+          ...mainFilePreprocessErrors,
+          ...mainFileErrors,
+          ...includedFileErrors,
+          ...unusedIncludeWarnings,
+        ],
       });
     } catch (error) {
-      this.connection.console.error(`Error validating document ${uri}: ${error}`);
+      this.connection.console.error(
+        `Error validating document ${uri}: ${error}`,
+      );
     }
   }
 
@@ -683,15 +750,15 @@ class Server {
   private async detectUnusedIncludes(
     originalText: string,
     preprocessResult: PreprocessResult,
-    mainFilePath: string
+    mainFilePath: string,
   ): Promise<Diagnostic[]> {
     const warnings: Diagnostic[] = [];
 
     // Strip comments from preprocessed content before parsing
     // (ANTLR lexer may not properly skip comments)
     const strippedMainContent = preprocessResult.content
-      .replace(/\/\*[\s\S]*?\*\//g, '')  // Remove block comments
-      .replace(/\/\/.*$/gm, '');          // Remove line comments
+      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove block comments
+      .replace(/\/\/.*$/gm, ""); // Remove line comments
 
     // Get the visitor for the combined preprocessed content
     const mainVisitor = Parser.getVisitor(strippedMainContent);
@@ -701,16 +768,19 @@ class Server {
       try {
         // Read and parse the included file to get its symbols
         const fs = await import("fs");
-        const includedContent = await fs.promises.readFile(includedFile, "utf-8");
+        const includedContent = await fs.promises.readFile(
+          includedFile,
+          "utf-8",
+        );
         // Strip #include directives and comments before parsing
         const strippedContent = includedContent
           // Remove block comments
-          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\/\*[\s\S]*?\*\//g, "")
           // Remove line comments
-          .replace(/\/\/.*$/gm, '')
+          .replace(/\/\/.*$/gm, "")
           // Remove #include directives
           .split("\n")
-          .map(line => line.trimStart().startsWith("#") ? "" : line)
+          .map((line) => (line.trimStart().startsWith("#") ? "" : line))
           .join("\n");
         const includedVisitor = Parser.getVisitor(strippedContent);
 
