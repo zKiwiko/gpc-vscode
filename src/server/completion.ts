@@ -1,9 +1,117 @@
-import { CompletionItem, CompletionItemKind } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver";
 import { Parser } from "./parser/parser";
 import { Snippets } from "./snippets";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+interface IncludeCompletionContext {
+  inInclude: boolean;
+  prefix: string;
+  quoteChar: '"' | "'" | '<';
+}
 
 export class Completions {
-  public static getCompletionItems(input: string): CompletionItem[] {
+  /**
+   * Check if cursor is in an #include directive context
+   */
+  private static getIncludeContext(
+    originalText: string,
+    position: Position
+  ): IncludeCompletionContext | null {
+    const lines = originalText.split("\n");
+    const line = lines[position.line];
+    if (!line) {
+      return null;
+    }
+
+    // Get text up to cursor position
+    const lineUpToCursor = line.substring(0, position.character);
+
+    // Match #include with open quote/bracket but not closed
+    // Handles: #include "..., #include '..., #include <...
+    const includeMatch = lineUpToCursor.match(/^(\s*)#include\s+(["'<])([^"'>]*)$/);
+    if (includeMatch) {
+      return {
+        inInclude: true,
+        prefix: includeMatch[3],
+        quoteChar: includeMatch[2] as '"' | "'" | '<',
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Get .gpc files from directory recursively
+   */
+  private static async getGpcFilesInDirectory(
+    baseDir: string,
+    currentFile: string,
+    relativePath: string = ""
+  ): Promise<string[]> {
+    const files: string[] = [];
+    const searchDir = relativePath ? path.join(baseDir, relativePath) : baseDir;
+
+    try {
+      const entries = await fs.promises.readdir(searchDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
+        const fullPath = path.join(baseDir, entryRelativePath);
+
+        if (entry.isFile() && entry.name.endsWith(".gpc")) {
+          if (fullPath !== currentFile) {
+            files.push(entryRelativePath);
+          }
+        } else if (entry.isDirectory() && !entry.name.startsWith(".")) {
+          // Recursively search subdirectories
+          const subFiles = await this.getGpcFilesInDirectory(baseDir, currentFile, entryRelativePath);
+          files.push(...subFiles);
+        }
+      }
+    } catch {
+      // Directory not accessible, ignore
+    }
+    return files;
+  }
+
+  /**
+   * Get completion items for include file paths
+   */
+  private static async getIncludeCompletions(
+    uri: string,
+    prefix: string
+  ): Promise<CompletionItem[]> {
+    const filePath = fileURLToPath(uri);
+    const baseDir = path.dirname(filePath);
+    const files = await this.getGpcFilesInDirectory(baseDir, filePath);
+
+    // Filter by prefix (case-insensitive)
+    const filteredFiles = files.filter((f) =>
+      f.toLowerCase().startsWith(prefix.toLowerCase())
+    );
+
+    return filteredFiles.map((file) => ({
+      label: file,
+      kind: CompletionItemKind.File,
+      detail: "GPC include file",
+      insertText: file,
+      sortText: file.includes(path.sep) ? `1${file}` : `0${file}`, // Prioritize same-directory files
+    }));
+  }
+
+  public static async getCompletionItems(
+    input: string,
+    originalText?: string,
+    position?: Position,
+    uri?: string
+  ): Promise<CompletionItem[]> {
+    // Check for include context if position info is available
+    if (originalText && position && uri) {
+      const includeCtx = this.getIncludeContext(originalText, position);
+      if (includeCtx && includeCtx.inInclude) {
+        return this.getIncludeCompletions(uri, includeCtx.prefix);
+      }
+    }
     const visitor = Parser.getVisitor(input);
     const items: CompletionItem[] = [];
 

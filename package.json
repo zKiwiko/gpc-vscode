@@ -2,13 +2,16 @@
   "name": "gpc-vscode",
   "displayName": "GPC Language Tools",
   "description": "GPC Language Tools for VSCode",
-  "version": "1.1.2",
+  "version": "1.2.3",
   "publisher": "zkiwiko",
   "license": "GPL-3.0-only",
   "icon": "images/cronus-blue.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkiwiko/gpc-vscode"
+  },
+  "bin": {
+    "gpc-language-server": "./bin/gpc-language-server.js"
   },
   "engines": {
     "vscode": "^1.101.0"
@@ -54,6 +57,33 @@
           "type": "boolean",
           "default": true,
           "description": "Show parameter names in function calls"
+        }
+      }
+    },
+    "semanticTokenScopes": [
+      {
+        "language": "gpc",
+        "scopes": {
+          "variable": ["variable.other.gpc"],
+          "variable.readonly": ["variable.other.constant.gpc"],
+          "variable.modification": ["variable.other.include.gpc"],
+          "function": ["entity.name.function.gpc"],
+          "function.defaultLibrary": ["support.function.gpc"],
+          "function.modification": ["entity.name.function.include.gpc"],
+          "property": ["constant.language.gpc"],
+          "type": ["entity.name.type.gpc"],
+          "type.modification": ["entity.name.type.include.gpc"]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "editor.semanticTokenColorCustomizations": {
+        "[*]": {
+          "rules": {
+            "*.modification:gpc": {
+              "fontStyle": "italic"
+            }
+          }
         }
       }
     }

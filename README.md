@@ -53,11 +53,25 @@ A comprehensive Visual Studio Code extension for the Cronus Zen's GPC Scripting 
 - **Comprehensive error messages** with precise location information
 - **Warning system** for unused variables and other code quality issues
 
+### 📦 Include Support
+- **`#include` directive support** for modular code organization
+- **Syntax**: `#include "filename.gpc"`, `#include 'filename.gpc'`, or `#include <filename.gpc>`
+- **Recursive includes** - included files can have their own includes
+- **Circular includes** - silently skipped (matches builder behavior)
+- **Unused include detection** - hints when an included file has no symbols used
+- **Cross-file features**:
+  - Auto-completion includes symbols from included files
+  - Hover shows info for symbols from includes (with source file indicator)
+  - Go to Definition jumps to the correct file and line
+  - Signature help works for functions defined in includes
+  - Error detection works across included files
+
 ### 📝 Advanced Language Features
 - **Intelligent parsing** using ANTLR4 grammar
 - **Caching system** for improved performance
 - **Built-in language constants** recognition
 - **Function validation** with parameter count checking
+- **Preprocessor** with source mapping for accurate diagnostics
 
 ### ⚙️ Configuration Options
 
@@ -101,6 +115,33 @@ The extension provides several customizable settings:
 - `F12` or `Ctrl + Click` - Go to Definition
 - `Shift + F12` - Find All References
 - `Ctrl + Shift + O` - Go to Symbol in File
+
+### Using Includes
+Split your code into multiple files for better organization:
+
+**utils.gpc**
+```gpc
+function myHelper(value) {
+    return value * 2;
+}
+
+int sharedConstant = 100;
+```
+
+**main.gpc**
+```gpc
+#include "utils.gpc"
+
+main {
+    myHelper(sharedConstant);  // Works! Auto-complete and hover available
+}
+```
+
+- Include paths are relative to the current file
+- Included files can include other files (max depth: 10)
+- Circular includes are silently skipped (matches builder behavior)
+
+> **Note**: The `#include` directive is processed by the LSP for IDE features. For the actual Cronus Zen compiler, you'll need a separate build step to merge files.
 
 ## Configuration
 
@@ -168,3 +209,5 @@ Copyright (C) 2025 zkiwiko
 - ✅ Signature help for function calls
 - ✅ Forward reference support
 - ✅ Comprehensive built-in function library
+- ✅ **`#include` directive support** for modular code
+- ✅ **Unused include detection** with hints for unused files
