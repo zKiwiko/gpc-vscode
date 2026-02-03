@@ -2,7 +2,7 @@
   "name": "gpc-vscode",
   "displayName": "GPC Language Tools",
   "description": "GPC Language Tools for VSCode",
-  "version": "1.2.0",
+  "version": "1.2.4",
   "internal-version": "1.2.3",
   "publisher": "zkiwiko",
   "license": "GPL-3.0-only",
@@ -58,6 +58,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show parameter names in function calls"
+        },
+        "gpc.mainFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the main GPC file (relative to workspace root). Symbols from this file and its includes will be globally available. Leave empty for auto-detection (looks for main.gpc or a file with main() function)."
         }
       }
     },

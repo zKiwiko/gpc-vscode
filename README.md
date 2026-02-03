@@ -95,6 +95,13 @@ The extension provides several customizable settings:
   - Show parameter names in function calls
   - Example: `get_val(input: XB1_LT)` instead of `get_val(XB1_LT)`
 
+#### Workspace Symbol Context
+- **`gpc.mainFile`** (string, default: `""`)
+  - Path to the main GPC file (relative to workspace root)
+  - Symbols from this file and its includes become globally available to files in the same directory tree
+  - Prevents false "undefined variable/function" errors in files that will be included by your build process
+  - Leave empty for auto-detection (per-folder: looks for `main.gpc` or a file with `main()` in the same directory)
+
 ## Installation
 
 1. Open VS Code
@@ -159,6 +166,48 @@ main {
 
 > **Note**: The `#include` directive is processed by the LSP for IDE features. For the actual Cronus Zen compiler, you'll need a separate build step to merge files. You can use [this python script](https://gist.github.com/masshirodev/8b9e5df2ed3978671807ec074eabd470) to _'build'_ your project.
 
+### Context-Aware Symbol Detection
+
+If your build process merges GPC files together (even without explicit `#include` directives), the extension provides context-aware symbol detection to prevent false "undefined" errors.
+
+**How it works**: When you open a file, the extension searches for a main file in the same directory, then parent directories, making symbols from that main file available.
+
+**Example structure**:
+```
+Games/
+  Apex/
+    main.gpc       ← Defines globalConfig, weapons array
+    combo.gpc      ← Can use globalConfig without #include
+    weapon.gpc     ← Can use weapons array without #include
+  Arc/
+    main.gpc       ← Different main file with its own symbols
+    combo.gpc      ← Uses Arc's main file symbols
+```
+
+**combo.gpc** (in `Games/Apex/`)
+```gpc
+function useSharedData() {
+    return globalConfig * 2;  // No error - globalConfig is in Games/Apex/main.gpc
+}
+```
+
+**main.gpc** (in `Games/Apex/`)
+```gpc
+int globalConfig = 100;
+
+main {
+    useSharedData();  // Will work after build merges files
+}
+```
+
+The extension auto-detects the main file for each opened file by searching upward:
+1. Configured `gpc.mainFile` setting (workspace-wide override)
+2. `main.gpc` in the same directory
+3. Any `.gpc` file with `main()` function in the same directory
+4. Continues searching parent directories up to workspace root
+
+This means multiple projects (like different games) can coexist in the same workspace, each with their own main file and symbol context.
+
 ## Configuration
 
 ### VS Code Settings UI
@@ -172,7 +221,8 @@ main {
 ```json
 {
   "gpc.inlayHints.enabled": true,
-  "gpc.inlayHints.parameterNames": true
+  "gpc.inlayHints.parameterNames": true,
+  "gpc.mainFile": "main.gpc"
 }
 ```
 
@@ -217,3 +267,20 @@ This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - s
 - ⚠️ **No warranty** - Provided "as-is" without warranty of any kind
 
 Copyright (C) 2025 zkiwiko
+
+## Changelog
+
+### Latest Features
+- ✅ Full syntax highlighting
+- ✅ IntelliSense with built-in function support
+- ✅ Real-time error detection
+- ✅ Hover documentation
+- ✅ Go to definition and find references
+- ✅ Configurable inlay hints
+- ✅ Document symbols and outline view
+- ✅ Signature help for function calls
+- ✅ Forward reference support
+- ✅ Comprehensive built-in function library
+- ✅ `#include` directive support for modular code
+- ✅ Unused include detection with hints for unused files
+- ✅ Workspace-wide symbol context with main file auto-detection
