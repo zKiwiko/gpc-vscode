@@ -22,6 +22,7 @@ import { Completions } from "./completion";
 import { ErrorCollector } from "./errors";
 import { IncludeContext, LanguageFeatures } from "./features";
 import { Parser } from "./parser/parser";
+import { GlobalSymbols } from "./parser/visitor";
 import { Preprocessor, PreprocessResult, SourceMapping } from "./preprocessor";
 import { WorkspaceIndex } from "./workspaceIndex";
 import {
@@ -82,6 +83,10 @@ class Server {
     new Map();
   /** Debounce delay in milliseconds */
   private readonly VALIDATION_DELAY = 300;
+  /** Cache of main file paths per directory */
+  private mainFileCache: Map<string, string | null> = new Map();
+  /** Cache of global symbols per main file */
+  private globalSymbolsCache: Map<string, GlobalSymbols> = new Map();
 
   constructor() {
     try {
@@ -216,14 +221,31 @@ class Server {
           try {
             const filePath = fileURLToPath(uri);
             const currentFileName = path.basename(filePath);
+
+            // Check if this is a main file for any directory
+            const isMainFile = Array.from(this.mainFileCache.values()).includes(filePath);
+
             for (const doc of this.documents.all()) {
               if (doc.uri === uri) {
                 continue; // Skip self
               }
 
+              // If this is a main file, revalidate files in the same directory tree
+              if (isMainFile) {
+                const docFilePath = fileURLToPath(doc.uri);
+                const docDir = path.dirname(docFilePath);
+                const changedDir = path.dirname(filePath);
+
+                // Revalidate if document is in same directory tree
+                if (docFilePath.startsWith(changedDir) || changedDir.startsWith(docDir)) {
+                  await this.revalidateDocument(doc);
+                  continue;
+                }
+              }
+
+              // Check if this file is included by the document
               const cached = this.preprocessCache.get(doc.uri);
               if (cached) {
-                // Check if any source mapping references this file
                 const includesThisFile = cached.result.sourceMap.some(
                   (m) =>
                     m.originalFile === filePath ||
@@ -662,8 +684,24 @@ class Server {
         processedText: preprocessResult.content,
       });
 
+      // Detect the main file for this file's context
+      const mainFilePath = await this.detectMainFileForPath(filePath);
+
+      // Get global symbols from main file (if found and this isn't the main file itself)
+      let globalSymbols: GlobalSymbols | null = null;
+      if (mainFilePath && filePath !== mainFilePath) {
+        globalSymbols = await this.getGlobalSymbolsForMainFile(mainFilePath);
+      }
+
+      // If this IS the main file, invalidate its cached global symbols
+      if (mainFilePath && filePath === mainFilePath) {
+        this.globalSymbolsCache.delete(mainFilePath);
+      }
+
+      // Collect errors with or without global symbols
       const parseErrors = ErrorCollector.collectErrors(
         preprocessResult.content,
+        globalSymbols || undefined
       );
       const mappedResults = parseErrors
         .map((error) =>
@@ -858,6 +896,7 @@ class Server {
   private async getConfiguration(uri?: string): Promise<{
     inlayHintsEnabled: boolean;
     parameterNamesEnabled: boolean;
+    mainFile?: string;
   }> {
     if (!this.hasConfigurationCapability) {
       // Default settings if configuration is not supported
@@ -877,11 +916,16 @@ class Server {
           scopeUri: uri,
           section: "gpc.inlayHints.parameterNames",
         },
+        {
+          scopeUri: uri,
+          section: "gpc.mainFile",
+        },
       ]);
 
       return {
         inlayHintsEnabled: config[0] !== false, // Default to true if undefined
         parameterNamesEnabled: config[1] !== false, // Default to true if undefined
+        mainFile: config[2] || "",
       };
     } catch (error) {
       // Return defaults if configuration fails
@@ -889,6 +933,127 @@ class Server {
         inlayHintsEnabled: true,
         parameterNamesEnabled: true,
       };
+    }
+  }
+
+  /**
+   * Detect the main GPC file for a given file path
+   * Searches in current directory, then parent directories up to workspace root
+   * Looks for: configured main file > main.gpc in same dir > file with main() in same dir
+   */
+  private async detectMainFileForPath(filePath: string): Promise<string | null> {
+    if (!this.workspaceRoot) {
+      return null;
+    }
+
+    try {
+      // First check if user configured a main file
+      const config = await this.getConfiguration();
+      if (config.mainFile) {
+        const configuredPath = path.resolve(this.workspaceRoot, config.mainFile);
+        const fs = await import("fs");
+        if (await fs.promises.access(configuredPath).then(() => true).catch(() => false)) {
+          return configuredPath;
+        }
+      }
+
+      const fs = await import("fs");
+      let currentDir = path.dirname(filePath);
+
+      // Search upward from current directory to workspace root
+      while (currentDir.startsWith(this.workspaceRoot)) {
+        // Check cache first
+        if (this.mainFileCache.has(currentDir)) {
+          const cached = this.mainFileCache.get(currentDir);
+          if (cached) {
+            return cached;
+          }
+        }
+
+        // Look for main.gpc in current directory
+        const mainGpcPath = path.join(currentDir, "main.gpc");
+        if (await fs.promises.access(mainGpcPath).then(() => true).catch(() => false)) {
+          this.mainFileCache.set(currentDir, mainGpcPath);
+          this.connection.console.info(`Auto-detected main file for ${path.basename(filePath)}: ${mainGpcPath}`);
+          return mainGpcPath;
+        }
+
+        // Look for any .gpc file with main() function in current directory
+        const files = await fs.promises.readdir(currentDir);
+        const gpcFiles = files.filter(f => f.endsWith(".gpc"));
+
+        for (const file of gpcFiles) {
+          const candidatePath = path.join(currentDir, file);
+          try {
+            const content = await fs.promises.readFile(candidatePath, "utf-8");
+            if (/\bmain\s*\(/.test(content)) {
+              this.mainFileCache.set(currentDir, candidatePath);
+              this.connection.console.info(`Auto-detected main file for ${path.basename(filePath)}: ${candidatePath}`);
+              return candidatePath;
+            }
+          } catch {
+            // Skip files we can't read
+          }
+        }
+
+        // Move up to parent directory
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir) {
+          break; // Reached root
+        }
+        currentDir = parentDir;
+      }
+
+      // No main file found
+      this.mainFileCache.set(path.dirname(filePath), null);
+      return null;
+    } catch (error) {
+      this.connection.console.error(`Error detecting main file for ${filePath}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get or parse global symbols from a main file
+   */
+  private async getGlobalSymbolsForMainFile(mainFilePath: string): Promise<GlobalSymbols | null> {
+    try {
+      // Check cache first
+      if (this.globalSymbolsCache.has(mainFilePath)) {
+        return this.globalSymbolsCache.get(mainFilePath)!;
+      }
+
+      const fs = await import("fs");
+      const mainFileContent = await fs.promises.readFile(mainFilePath, "utf-8");
+
+      // Preprocess the main file to expand includes
+      const baseDir = path.dirname(mainFilePath);
+      const preprocessResult = await Preprocessor.process(mainFileContent, baseDir, mainFilePath);
+
+      // Parse to get visitor with all symbols
+      const mainVisitor = Parser.getVisitor(preprocessResult.content);
+
+      // Extract symbols
+      const globalSymbols: GlobalSymbols = {
+        variables: new Map(mainVisitor.Variables),
+        functions: new Map(mainVisitor.Functions),
+        combos: new Map(mainVisitor.Combos),
+      };
+
+      // Cache the result
+      this.globalSymbolsCache.set(mainFilePath, globalSymbols);
+
+      this.connection.console.info(
+        `Global symbols parsed from ${path.basename(mainFilePath)}: ` +
+        `${globalSymbols.variables!.size} variables, ` +
+        `${globalSymbols.functions!.size} functions, ` +
+        `${globalSymbols.combos!.size} combos`
+      );
+
+      return globalSymbols;
+    } catch (error) {
+      this.connection.console.error(`Error parsing global symbols from ${mainFilePath}: ${error}`);
+      return null;
     }
   }
 }

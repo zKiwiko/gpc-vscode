@@ -28,6 +28,12 @@ export interface Function {
   sourceFile?: string;
 }
 
+export interface GlobalSymbols {
+  variables?: Map<string, Variable>;
+  functions?: Map<string, Function>;
+  combos?: Map<string, Variable>;
+}
+
 export class Visitor
   extends AbstractParseTreeVisitor<void>
   implements gpc_grammarVisitor<void>
@@ -41,15 +47,56 @@ export class Visitor
 
   private isFirstPass: boolean = true;
   private currentParameters: Set<string> = new Set<string>();
+  private globalSymbols?: GlobalSymbols;
 
   public static getVariables(visitor: Visitor): Variable[] {
     return Array.from(visitor.Variables.values());
   }
 
-  constructor() {
+  constructor(globalSymbols?: GlobalSymbols) {
     super();
     this.loadConstants();
     this.loadFunctions();
+
+    // Store global symbols to merge after first pass
+    this.globalSymbols = globalSymbols;
+  }
+
+  /**
+   * Merge global symbols after first pass but before second pass
+   * This prevents duplicate declaration errors while making symbols available for validation
+   */
+  private mergeGlobalSymbols(): void {
+    if (!this.globalSymbols) {
+      return;
+    }
+
+    // Merge variables (only if not already defined in this file)
+    if (this.globalSymbols.variables) {
+      this.globalSymbols.variables.forEach((variable, name) => {
+        if (!this.Variables.has(name)) {
+          this.Variables.set(name, { ...variable, used: true });
+        }
+      });
+    }
+
+    // Merge functions (only if not already defined in this file)
+    if (this.globalSymbols.functions) {
+      this.globalSymbols.functions.forEach((func, name) => {
+        if (!this.Functions.has(name)) {
+          this.Functions.set(name, { ...func, used: true });
+        }
+      });
+    }
+
+    // Merge combos (only if not already defined in this file)
+    if (this.globalSymbols.combos) {
+      this.globalSymbols.combos.forEach((combo, name) => {
+        if (!this.Combos.has(name)) {
+          this.Combos.set(name, { ...combo, used: true });
+        }
+      });
+    }
   }
 
   public getErrors(): Diagnostic[] {
@@ -200,11 +247,17 @@ export class Visitor
   }
 
   visitProgram(ctx: ProgramContext): void {
+    // First pass: collect all declarations from this file
     this.isFirstPass = true;
     for (let i = 0; i < ctx.global_statement().length; i++) {
       this.visit(ctx.global_statement(i));
     }
 
+    // Merge global symbols after first pass but before second pass
+    // This prevents duplicate declaration errors while making symbols available for validation
+    this.mergeGlobalSymbols();
+
+    // Second pass: validate references and mark symbols as used
     this.isFirstPass = false;
     for (let i = 0; i < ctx.global_statement().length; i++) {
       this.visit(ctx.global_statement(i));

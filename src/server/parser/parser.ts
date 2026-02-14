@@ -2,7 +2,7 @@ import * as antlr from "antlr4ts";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver";
 import { gpc_grammarLexer } from "./gpc_grammarLexer";
 import { gpc_grammarParser } from "./gpc_grammarParser";
-import { Visitor } from "./visitor";
+import { Visitor, GlobalSymbols } from "./visitor";
 
 export interface ParseResult {
   visitor: Visitor;
@@ -14,9 +14,9 @@ export class Parser {
   private static cachedResult: ParseResult | null = null;
   private static cachedInput: string | null = null;
 
-  public static parse(input: string): ParseResult {
+  public static parse(input: string, globalSymbols?: GlobalSymbols): ParseResult {
     // Return cached result if input hasn't changed
-    if (this.cachedInput === input && this.cachedResult) {
+    if (this.cachedInput === input && this.cachedResult && !globalSymbols) {
       return this.cachedResult;
     }
 
@@ -47,13 +47,13 @@ export class Parser {
       const tree = parser.program();
 
       // Create visitor and visit the tree
-      visitor = new Visitor();
+      visitor = new Visitor(globalSymbols);
       visitor.visit(tree);
 
       // Add semantic errors from visitor
       errors.push(...visitor.getErrors());
     } catch (error) {
-      visitor = new Visitor(); // Create empty visitor on error
+      visitor = new Visitor(globalSymbols); // Create empty visitor on error
       errors.push({
         severity: DiagnosticSeverity.Error,
         range: {
@@ -78,12 +78,12 @@ export class Parser {
     return result;
   }
 
-  public static getErrors(input: string): Diagnostic[] {
-    return this.parse(input).errors;
+  public static getErrors(input: string, globalSymbols?: GlobalSymbols): Diagnostic[] {
+    return this.parse(input, globalSymbols).errors;
   }
 
-  public static getVisitor(input: string): Visitor {
-    return this.parse(input).visitor;
+  public static getVisitor(input: string, globalSymbols?: GlobalSymbols): Visitor {
+    return this.parse(input, globalSymbols).visitor;
   }
 
   public static clearCache(): void {
