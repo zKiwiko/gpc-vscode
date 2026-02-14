@@ -114,10 +114,11 @@ export async function activate(context: vscode.ExtensionContext) {
     const args = ["--stdio"];
 
     // Build experimental features arguments
-    const experimentalFeatures = config.get<any>(
-      "lsp.experimentalFeatures",
-      {},
-    );
+    const experimentalFeatures = config.get<{
+      all?: boolean;
+      macros?: boolean;
+      imports?: boolean;
+    }>("lsp.experimentalFeatures", {});
     if (experimentalFeatures.all) {
       args.push("--features", "all");
     } else {

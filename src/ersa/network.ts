@@ -1,19 +1,23 @@
-const fs = require("fs").promises;
+import { promises as fs } from "fs";
+import * as path from "path";
 
 export class Network {
+  private static getPlatformBinaryName(baseName: string): string {
+    return process.platform === "win32" ? `${baseName}.exe` : baseName;
+  }
+
   public static get_ersa_user_dir(): string {
     if (process.platform === "win32") {
-      return `${process.env.APPDATA}\\ersa`;
+      return path.join(process.env.APPDATA || "", "ersa");
     } else {
-      return `${process.env.HOME}/.local/share/ersa`;
+      return path.join(process.env.HOME || "", ".local", "share", "ersa");
     }
   }
 
   public static async get_repoinfo(url: string): Promise<any> {
-    const user_agent = "gpc-vscode/1.0";
     const response = await fetch(url, {
       headers: {
-        "User-Agent": user_agent,
+        "User-Agent": "gpc-vscode",
       },
     });
     return response.json();
@@ -26,7 +30,7 @@ export class Network {
 
   public static async download_latest_release(url: string): Promise<void> {
     const repoinfo = await this.get_repoinfo(url);
-    const platform = process.platform === "win32" ? "ersa.exe" : "ersa";
+    const platform = this.getPlatformBinaryName("ersa");
     const asset = repoinfo.assets.find((a: any) => a.name === platform);
 
     if (!asset) {
@@ -34,15 +38,19 @@ export class Network {
     }
 
     const response = await fetch(asset.browser_download_url);
+    if (!response.ok) {
+      throw new Error(`Failed to download: ${response.statusText}`);
+    }
+
     const blob = await response.blob();
     const buffer = Buffer.from(await blob.arrayBuffer());
-    const path = `${this.get_ersa_user_dir()}/${platform}`;
+    const binaryPath = path.join(this.get_ersa_user_dir(), platform);
 
     await fs.mkdir(this.get_ersa_user_dir(), { recursive: true });
-    await fs.writeFile(path, buffer);
+    await fs.writeFile(binaryPath, buffer);
 
     if (process.platform !== "win32") {
-      await fs.chmod(path, 0o755);
+      await fs.chmod(binaryPath, 0o755);
     }
   }
 }

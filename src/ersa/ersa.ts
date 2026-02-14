@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 import { Network } from "./network";
-const fs = require("fs");
-const { exec } = require("child_process");
-const { promisify } = require("util");
+import * as fs from "fs";
+import * as path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
@@ -11,6 +12,10 @@ export class Ersa {
     "https://api.github.com/repos/zkiwiko/ersa/releases/latest";
   private static readonly ERSA_LSP_REPO_URL =
     "https://api.github.com/repos/zkiwiko/ersa-lsp-core/releases/latest";
+
+  private static getPlatformBinaryName(baseName: string): string {
+    return process.platform === "win32" ? `${baseName}.exe` : baseName;
+  }
 
   public static is_installed(): boolean {
     // First check custom path from configuration if it's set
@@ -22,10 +27,10 @@ export class Ersa {
     }
 
     // Then check the expected directory
-    const platform = process.platform === "win32" ? "ersa.exe" : "ersa";
-    const path = `${Network.get_ersa_user_dir()}/${platform}`;
+    const platform = this.getPlatformBinaryName("ersa");
+    const binaryPath = path.join(Network.get_ersa_user_dir(), platform);
 
-    if (fs.existsSync(path)) {
+    if (fs.existsSync(binaryPath)) {
       return true;
     }
 
@@ -40,8 +45,8 @@ export class Ersa {
       return customPath;
     }
 
-    const platform = process.platform === "win32" ? "ersa.exe" : "ersa";
-    return `${Network.get_ersa_user_dir()}/${platform}`;
+    const platform = this.getPlatformBinaryName("ersa");
+    return path.join(Network.get_ersa_user_dir(), platform);
   }
 
   public static get_lsp_binary_path(): string {
@@ -56,15 +61,14 @@ export class Ersa {
     // Then check if custom Ersa path is set, assume LSP is in the same directory
     const customErsaPath = config.get<string>("ersa.binaryPath") || "";
     if (customErsaPath && fs.existsSync(customErsaPath)) {
-      const dir = require("path").dirname(customErsaPath);
-      const platform =
-        process.platform === "win32" ? "ersa_lsp.exe" : "ersa_lsp";
-      return `${dir}/${platform}`;
+      const dir = path.dirname(customErsaPath);
+      const platform = this.getPlatformBinaryName("ersa_lsp");
+      return path.join(dir, platform);
     }
 
     // Finally, check the expected directory
-    const platform = process.platform === "win32" ? "ersa_lsp.exe" : "ersa_lsp";
-    return `${Network.get_ersa_user_dir()}/${platform}`;
+    const platform = this.getPlatformBinaryName("ersa_lsp");
+    return path.join(Network.get_ersa_user_dir(), platform);
   }
 
   private static is_using_custom_path(): boolean {
