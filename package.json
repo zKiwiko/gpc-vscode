@@ -23,11 +23,23 @@
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
-    "commands": [{
-      "command": "gpc.openDocumentation",
-      "title": "Open Documentation",
-      "category": "GPC"
-    }],
+    "commands": [
+      {
+        "command": "gpc.openDocumentation",
+        "title": "Open Documentation",
+        "category": "GPC"
+      },
+      {
+        "command": "gpc.toggleExperimentalFeatures",
+        "title": "Toggle Experimental LSP Features",
+        "category": "GPC"
+      },
+      {
+        "command": "gpc.restartLsp",
+        "title": "Restart Language Server",
+        "category": "GPC"
+      }
+    ],
     "menus": {
       "commandPalette": [{
         "command": "gpc.openDocumentation",
