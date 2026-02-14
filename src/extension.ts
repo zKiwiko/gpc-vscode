@@ -24,13 +24,15 @@ import {
   LanguageClientOptions,
   ServerOptions,
   TransportKind,
+  Executable,
 } from "vscode-languageclient/node";
+import { Ersa } from "./ersa/ersa";
 
 let client: LanguageClient;
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
   console.log("Server Started: gpc-vscode");
@@ -73,21 +75,74 @@ export function activate(context: vscode.ExtensionContext) {
       if (selected) {
         vscode.env.openExternal(vscode.Uri.parse(selected.url));
       }
-    }
+    },
   );
 
   context.subscriptions.push(openDocsCommand);
 
-  const ServerOptions: ServerOptions = {
-    run: {
-      module: context.asAbsolutePath("dist/server.js"),
-      transport: TransportKind.ipc,
-    },
-    debug: {
-      module: context.asAbsolutePath("dist/server.js"),
-      transport: TransportKind.ipc,
-    },
-  };
+  // Check configuration to determine which LSP to use
+  const config = vscode.workspace.getConfiguration("gpc");
+  const useLegacyLsp = config.get<boolean>("useLegacyLsp", false);
+
+  let serverOptions: ServerOptions;
+
+  if (useLegacyLsp) {
+    // Use legacy TypeScript LSP
+    serverOptions = {
+      run: {
+        module: context.asAbsolutePath("dist/server.js"),
+        transport: TransportKind.ipc,
+      },
+      debug: {
+        module: context.asAbsolutePath("dist/server.js"),
+        transport: TransportKind.ipc,
+      },
+    };
+  } else {
+    // Initialize and use Ersa LSP
+    try {
+      await Ersa.init();
+    } catch (error) {
+      console.error("Failed to initialize Ersa:", error);
+      vscode.window.showErrorMessage(
+        `Failed to initialize Ersa: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return;
+    }
+
+    const lspBinaryPath = Ersa.get_lsp_binary_path();
+    const args = ["--stdio"];
+
+    // Build experimental features arguments
+    const experimentalFeatures = config.get<any>(
+      "lsp.experimentalFeatures",
+      {},
+    );
+    if (experimentalFeatures.all) {
+      args.push("--features", "all");
+    } else {
+      const enabledFeatures: string[] = [];
+      if (experimentalFeatures.macros) {
+        enabledFeatures.push("macros");
+      }
+      if (experimentalFeatures.imports) {
+        enabledFeatures.push("imports");
+      }
+      if (enabledFeatures.length > 0) {
+        args.push("--features", enabledFeatures.join(","));
+      }
+    }
+
+    const executable: Executable = {
+      command: lspBinaryPath,
+      args: args,
+    };
+
+    serverOptions = {
+      run: executable,
+      debug: executable,
+    };
+  }
 
   const clientOptions: LanguageClientOptions = {
     // Register the server for gpc documents
@@ -103,8 +158,8 @@ export function activate(context: vscode.ExtensionContext) {
   client = new LanguageClient(
     "gpc-vscode",
     "GPC Language Server",
-    ServerOptions,
-    clientOptions
+    serverOptions,
+    clientOptions,
   );
 
   client
@@ -115,7 +170,7 @@ export function activate(context: vscode.ExtensionContext) {
     .catch((error: any) => {
       console.error("Failed to start GPC Language Server:", error);
       vscode.window.showErrorMessage(
-        `Failed to start GPC Language Server: ${error.message || error}`
+        `Failed to start GPC Language Server: ${error.message || error}`,
       );
     });
 }

@@ -49,15 +49,42 @@
     "configuration": {
       "title": "GPC Language Support",
       "properties": {
-        "gpc.inlayHints.enabled": {
+        "gpc.useLegacyLsp": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable/disable inlay hints for function parameters and type information"
+          "default": false,
+          "description": "Use legacy LSP implementation"
         },
-        "gpc.inlayHints.parameterNames": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show parameter names in function calls"
+        "gpc.ersa.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Ersa binary. Leave empty to auto-detect (looks for 'ersa' in PATH or user directory)."
+        },
+        "gpc.lsp.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the LSP binary"
+        },
+        "gpc.lsp.experimentalFeatures": {
+          "type": "object",
+          "default": {},
+          "description": "Enable experimental LSP features",
+          "properties": {
+            "imports": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable experimental imports support"
+            },
+            "macros": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable experimental macros support"
+            },
+            "all": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable all experimental features"
+            }
+          }
         },
         "gpc.mainFile": {
           "type": "string",
