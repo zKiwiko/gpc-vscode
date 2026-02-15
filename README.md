@@ -9,6 +9,21 @@ implementations of LSP features, better preformance, and the extension manages i
 them updated and leveraging their features and commands.
 If you'd prefer, you can always use the legacy LSP implementation.
 
+## Commands
+
+**General Commands:**
+
+- `GPC: Restart LSP` - Restart the current LSP process.
+- `GPC: Open Documentation` - Open specific parts of the GPC documentation in a browser.
+- `GPC: Toggle Experimental Features` - Allows you to disable to enable experimental LSP features.
+
+**Build Commands:**
+
+- `GPC: Ersa Build Current File` - Builds the currently open file by running `ersa build --file <current file> --output build/build.gpc`
+- `GPC: Ersa Build 'Main' File` - Builds the file specified in `gpc.ersa.main` workspace setting by running `ersa build --file <gpc.ersa.main file> --output build/build.gpc`
+
+To use the build main command, set the `gpc.ersa.main` path in your workspace settings. If not configured, you'll be prompted to add it when running the command.
+
 ## Legacy LSP
 
 If youd like to use the legacy LSP intead of Ersa's deticated LSP, you can enable it in the extensions settings.
