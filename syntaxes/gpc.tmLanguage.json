@@ -24,11 +24,11 @@
 		  },
 		  {
 			"name": "keyword.other.gpc",
-			"match": "\\b(function|combo|init|main|enum|define|const|local|use)\\b"
+			"match": "\\b(function|combo|fcombo|init|main|enum|define|const)\\b"
 		  },
 		  {
 			"name": "storage.type.gpc",
-			"match": "\\b(int|int8|int16|int32|uint8|uint16|uint32|string|data|image|ps5adt)\\b"
+			"match": "\\b(int|int8|int16|uint8|uint16|string|data|image|ps5adt)\\b"
 		  },
 		  {
 			"name": "constant.language.boolean.gpc",
@@ -105,7 +105,7 @@
 	  "variable-declarations": {
 		"patterns": [
 		  {
-			"begin": "\\b(const\\s+)?(int|int8|int16|int32|string|uint8|uint16|uint32|data|image|ps5adt)\\s+",
+			"begin": "\\b(const\\s+)?(int|int8|int16|uint8|uint16|string|data|image|ps5adt)\\s+",
 			"end": ";|(?=\\{)",
 			"beginCaptures": {
 			  "1": { "name": "storage.modifier.gpc" },
@@ -264,7 +264,7 @@
 		  },
 		  {
 			"name": "keyword.operator.logical.gpc",
-			"match": "(&&|\\|\\||!)"
+			"match": "(^^|&&|\\|\\||!)"
 		  },
 		  {
 			"name": "keyword.operator.bitwise.gpc",
@@ -284,7 +284,7 @@
 		"patterns": [
 		  {
 			"name": "storage.type.gpc",
-			"match": "\\b(int|int8|int16|int32|uint8|uint16|uint32|string|data|image)\\b"
+			"match": "\\b(int|int8|int16|uint8|uint16|string|data|image|ps5adt)\\b"
 		  }
 		]
 	  },
