@@ -37,7 +37,7 @@ export class Ersa {
     return false;
   }
 
-  private static get_binary_path(): string {
+  public static get_binary_path(): string {
     const config = vscode.workspace.getConfiguration("gpc");
     const customPath = config.get<string>("ersa.binaryPath") || "";
 

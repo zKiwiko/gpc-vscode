@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0] - 2026-02-14
+
+### Added
+
+- Management of [Ersa](https://github.com/zkiwiko/ersa) and [Ersa LSP](https://github.com/zkiwiko/ersa-lsp-core)
+- `GPC: Restart Language Server` command
+- `GPC: Ersa Build Current File` command
+- `GPC: Ersa Build 'Main' File` command
+  - Requires workspace defined "main" file in `gpc.ersa.main` option
+
+### Changed
+
+- Deprecated the original LSP implementation in favour of Ersa's LSP.
+  - You can still use it by enabling the option `gpc.useLegacyLsp` in the extension settings.
+
 ## [1.2.0] - 2026-01-25
 
 ### Fixed

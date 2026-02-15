@@ -2,8 +2,8 @@
   "name": "gpc-vscode",
   "displayName": "GPC Language Tools",
   "description": "GPC Language Tools for VSCode",
-  "version": "1.2.4",
-  "internal-version": "1.2.3",
+  "version": "1.3.0",
+  "internal-version": "1.3.0",
   "publisher": "zkiwiko",
   "license": "GPL-3.0-only",
   "icon": "images/cronus-blue.png",
@@ -38,6 +38,16 @@
         "command": "gpc.restartLsp",
         "title": "Restart Language Server",
         "category": "GPC"
+      },
+      {
+        "command": "gpc.buildCurrentFile",
+        "title": "Build Current File",
+        "category": "Ersa"
+      },
+      {
+        "command": "gpc.buildMainFile",
+        "title": "Build Main File",
+        "category": "Ersa"
       }
     ],
     "menus": {
@@ -70,6 +80,11 @@
           "type": "string",
           "default": "",
           "description": "Path to the Ersa binary. Leave empty to auto-detect (looks for 'ersa' in PATH or user directory)."
+        },
+        "gpc.ersa.main": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the main GPC file for Ersa build commands (relative to workspace root)."
         },
         "gpc.lsp.binaryPath": {
           "type": "string",
@@ -110,6 +125,7 @@
         "language": "gpc",
         "scopes": {
           "variable": ["variable.other.gpc"],
+          "keyword": ["keyword.control.gpc"],
           "variable.readonly": ["variable.other.constant.gpc"],
           "variable.modification": ["variable.other.include.gpc"],
           "function": ["entity.name.function.gpc"],

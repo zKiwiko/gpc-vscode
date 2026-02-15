@@ -19,6 +19,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
+import * as path from "path";
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -297,8 +298,111 @@ export async function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const buildCurrentFileCommand = vscode.commands.registerCommand(
+    "gpc.buildCurrentFile",
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showErrorMessage("No file is currently open");
+        return;
+      }
+
+      const document = editor.document;
+      if (document.languageId !== "gpc") {
+        vscode.window.showErrorMessage("Current file is not a GPC file");
+        return;
+      }
+
+      const currentFile = document.uri.fsPath;
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage("File must be in a workspace to build");
+        return;
+      }
+
+      const buildDir = path.join(workspaceFolder.uri.fsPath, "build");
+      const outputFile = path.join(buildDir, "build.gpc");
+      const ersaBinaryPath = Ersa.get_binary_path();
+
+      const terminal = vscode.window.createTerminal("Ersa Build");
+      terminal.show();
+      terminal.sendText(`mkdir -p "${buildDir}"`);
+      terminal.sendText(
+        `"${ersaBinaryPath}" build --file "${currentFile}" --output "${outputFile}"`,
+      );
+    },
+  );
+
+  const buildMainFileCommand = vscode.commands.registerCommand(
+    "gpc.buildMainFile",
+    async () => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage("No workspace folder is open");
+        return;
+      }
+
+      const config = vscode.workspace.getConfiguration("gpc");
+      let mainFilePath = config.get<string>("ersa.main", "");
+
+      if (!mainFilePath) {
+        const input = await vscode.window.showInputBox({
+          prompt:
+            "Enter the path to the main GPC file (relative to workspace root)",
+          placeHolder: "e.g., src/main.gpc or main.gpc",
+          validateInput: (value) => {
+            if (!value) {
+              return "Path cannot be empty";
+            }
+            if (path.isAbsolute(value)) {
+              return "Path must be relative to workspace root";
+            }
+            return null;
+          },
+        });
+
+        if (!input) {
+          return; // User cancelled
+        }
+
+        mainFilePath = input;
+
+        // Ask if they want to save this to settings
+        const saveToSettings = await vscode.window.showQuickPick(
+          ["Yes", "No"],
+          {
+            placeHolder: "Save this path to workspace settings?",
+          },
+        );
+
+        if (saveToSettings === "Yes") {
+          await config.update(
+            "ersa.main",
+            mainFilePath,
+            vscode.ConfigurationTarget.Workspace,
+          );
+        }
+      }
+
+      const fullMainPath = path.join(workspaceFolder.uri.fsPath, mainFilePath);
+      const buildDir = path.join(workspaceFolder.uri.fsPath, "build");
+      const outputFile = path.join(buildDir, "build.gpc");
+      const ersaBinaryPath = Ersa.get_binary_path();
+
+      const terminal = vscode.window.createTerminal("Ersa Build");
+      terminal.show();
+      terminal.sendText(`mkdir -p "${buildDir}"`);
+      terminal.sendText(
+        `"${ersaBinaryPath}" build --file "${fullMainPath}" --output "${outputFile}"`,
+      );
+    },
+  );
+
   context.subscriptions.push(toggleExperimentalFeaturesCommand);
   context.subscriptions.push(restartLspCommand);
+  context.subscriptions.push(buildCurrentFileCommand);
+  context.subscriptions.push(buildMainFileCommand);
 
   // Start the language server
   try {
